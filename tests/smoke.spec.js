@@ -1,6 +1,18 @@
 import { test, expect } from '@playwright/test';
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title === 'recovers the local database after a SQL worker crash') {
+    await page.addInitScript(() => {
+      const NativeWorker = window.Worker;
+      window.Worker = new Proxy(NativeWorker, {
+        construct(target, args) {
+          const instance = Reflect.construct(target, args);
+          window.__terminniaWorker = instance;
+          return instance;
+        }
+      });
+    });
+  }
   page.on('console', message => {
     if (message.type() === 'error') console.log('[browser console]', message.text());
   });
@@ -151,4 +163,23 @@ test('recovers the IndexedDB save queue after a transient storage write failure'
   await page.getByRole('button', { name: /Run/ }).click();
   await expect(page.locator('#result-content')).toContainText('first');
   await expect(page.locator('#result-content')).toContainText('second');
+});
+
+
+test('recovers the local database after a SQL worker crash', async ({ page }) => {
+  await replaceSql(page, "CREATE TABLE worker_recovery (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO worker_recovery(value) VALUES ('survived');");
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#message-content')).toContainText(/Database snapshot saved locally/i);
+
+  await page.evaluate(() => {
+    if (!window.__terminniaWorker) throw new Error('Test worker handle was not captured.');
+    window.__terminniaWorker.dispatchEvent(new ErrorEvent('error', {
+      message: 'Simulated worker process failure'
+    }));
+  });
+
+  await expect(page.locator('#status')).toContainText('local database restored', { timeout: 30000 });
+  await replaceSql(page, 'SELECT value FROM worker_recovery;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('survived');
 });
