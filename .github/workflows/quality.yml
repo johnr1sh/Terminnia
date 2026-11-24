@@ -78,6 +78,16 @@ jobs:
   mysql-runner-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      mysql-image-cache:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: runner-cache-only
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
