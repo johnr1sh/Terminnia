@@ -2,43 +2,86 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#11151d"><meta name="description" content="Terminnia is a free, local-first SQL workspace. Write and execute SQL directly in your browser.">
-<title>Terminnia — SQL Workspace</title><link rel="stylesheet" href="./styles.css">
+<meta name="theme-color" content="#23293c"><meta name="description" content="Terminnia — a browser-based SQL development workspace.">
+<title>Terminnia — SQL Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="brand-mark">t.</span><span>terminnia</span></div>
-  <button class="icon-button mobile-only" id="sidebar-toggle" aria-label="Toggle explorer">☰</button>
-  <div class="connection" id="connection">Connecting to local database…</div>
-  <div class="top-actions"><button class="icon-button" id="import-db" title="Import SQLite database" aria-label="Import database">⇧</button><button class="icon-button" id="export-db" title="Export SQLite database" aria-label="Export database">⇩</button></div>
+<div class="ide-shell" id="ide-shell">
+<header class="app-header">
+  <div class="brand-area"><button class="brand-logo" aria-label="Terminnia home">t<span>.</span></button><span class="brand-name">Terminnia</span><span class="brand-divider"></span><button class="project-switcher" id="project-switcher"><span class="project-icon">▣</span><span>My Database</span><span class="chevron">⌄</span></button></div>
+  <div class="header-center"><span class="connection-led"></span><span id="connection">Connecting to local database…</span></div>
+  <div class="header-actions"><button class="header-icon" id="import-db" title="Import database" aria-label="Import database">⇧</button><button class="header-icon" id="export-db" title="Export database" aria-label="Export database">⇩</button><span class="header-divider"></span><button class="header-icon" id="settings-toggle" title="Editor settings" aria-label="Editor settings">⚙</button><button class="avatar" title="Local workspace">J</button></div>
 </header>
-<div class="workspace">
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-heading"><span>EXPLORER</span><button class="icon-button compact" id="refresh-tables" title="Refresh tables">↻</button></div>
-  <div class="database-card"><div class="database-name"><span class="database-glyph">◈</span><strong>main.sqlite</strong></div><div class="muted">Browser-local database</div><div class="engine-pill" id="engine-label">Starting engine…</div></div>
-  <div class="section-heading"><span>TABLES</span><button class="icon-button compact" id="new-table" title="Insert CREATE TABLE template">＋</button></div>
-  <nav id="table-list" class="table-list" aria-label="Database tables"><p class="muted small">Loading tables…</p></nav>
-  <div class="sidebar-divider"></div><div class="section-heading history-heading">QUERY HISTORY</div>
-  <div id="history-list" class="history-list"><p class="muted small">Loading history…</p></div>
-  <div class="privacy-note"><span class="privacy-dot"></span><span>Your database stays in this browser. Export a backup to move it to another device.</span></div>
-</aside>
-<main class="main">
-  <div class="filebar"><div class="file-tab"><span class="file-icon">▦</span><span>query.sql</span><span class="unsaved-dot"></span></div><div class="file-actions"><button class="icon-button compact" id="copy-sql" title="Copy SQL" aria-label="Copy SQL">⧉</button><button class="icon-button compact" id="download-sql" title="Download SQL" aria-label="Download SQL">⇩</button></div></div>
-  <section class="editor-section">
-    <div class="toolbar"><div class="breadcrumb">main.sqlite <span>/</span> query.sql</div><div class="toolbar-actions"><span class="shortcut">Ctrl / Cmd + Enter</span><button class="button secondary" id="format">Format</button><button class="button secondary" id="clear">Clear</button><button class="button primary" id="run">▶ Run</button></div></div>
-    <div class="editor-frame"><div id="editor" aria-label="SQL editor"></div></div>
-  </section>
-  <section class="output-section">
-    <div class="output-toolbar"><div class="panel-tabs"><button class="panel-tab active" data-panel-tab="results">Results <span class="count" id="row-count">—</span></button><button class="panel-tab" data-panel-tab="messages">Messages</button><button class="panel-tab" data-panel-tab="schema">Schema</button></div><div class="output-actions"><span id="duration" class="duration">Ready</span><button class="button secondary small-button" id="csv" disabled>Export CSV</button></div></div>
-    <div class="result-tabs" id="result-tabs" hidden></div>
-    <div class="output-content" data-panel="results" id="result-content"><div class="welcome-state"><div class="welcome-icon">⌘</div><strong>Ready when you are</strong><span>Write SQL in the editor and run your first query.</span><button id="example" class="text-button">Load example query</button></div></div>
-    <div class="output-content" data-panel="messages" hidden><pre class="message-content" id="message-content">Execution messages appear here.</pre></div>
-    <div class="output-content" data-panel="schema" hidden><div id="schema-content" class="schema-content muted">Select a table to inspect its columns.</div></div>
-  </section>
-  <footer class="statusbar"><span id="status" data-state="busy">Initializing database…</span><span id="cursor">SQL · UTF-8</span><span>SQLite · Local only</span></footer>
-  <div id="startup-error" class="startup-error" hidden></div>
-</main>
+
+<div class="work-area">
+  <nav class="activity-bar" aria-label="Workspace tools">
+    <button class="activity-button selected" data-activity="explorer" title="Explorer" aria-label="Explorer"><span>▤</span></button>
+    <button class="activity-button" data-activity="search" title="Search" aria-label="Search"><span>⌕</span></button>
+    <button class="activity-button" data-activity="database" title="Database" aria-label="Database"><span>▦</span></button>
+    <div class="activity-spacer"></div>
+    <button class="activity-button" data-activity="history" title="History" aria-label="History"><span>◷</span></button>
+    <button class="activity-button" data-activity="settings" title="Settings" aria-label="Settings"><span>⚙</span></button>
+  </nav>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-title"><span id="sidebar-title">EXPLORER</span><div class="sidebar-tools"><button id="refresh-tables" title="Refresh" aria-label="Refresh">↻</button><button id="new-table" title="New table template" aria-label="New table">＋</button><button id="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar">‹</button></div></div>
+    <div class="sidebar-scroll">
+      <section class="explorer-section">
+        <button class="tree-heading" id="project-tree-toggle"><span class="tree-chevron">⌄</span><span class="tree-folder">▣</span><span>MY DATABASE</span><span class="tree-actions">•••</span></button>
+        <div class="project-meta"><span class="engine-dot"></span><span id="engine-label">SQLite WebAssembly · Local</span></div>
+        <div class="tree-group">
+          <button class="tree-heading subheading" id="tables-tree-toggle"><span class="tree-chevron">⌄</span><span class="tree-folder">▾</span><span>TABLES</span><span class="tree-actions" id="table-total">—</span></button>
+          <nav id="table-list" class="table-list" aria-label="Database tables"><p class="muted small">Loading tables…</p></nav>
+        </div>
+        <div class="tree-group">
+          <button class="tree-heading subheading" id="views-tree-toggle"><span class="tree-chevron">›</span><span class="tree-folder">▸</span><span>VIEWS</span></button>
+          <div class="tree-empty" id="views-empty">No views</div>
+        </div>
+        <div class="tree-group">
+          <button class="tree-heading subheading"><span class="tree-chevron">›</span><span class="tree-folder">▸</span><span>SQL FILES</span><span class="tree-actions"><button class="mini-action" id="new-query" title="New query">＋</button></span></button>
+        </div>
+      </section>
+      <section class="history-section" id="history-section"><button class="tree-heading"><span class="tree-chevron">⌄</span><span>QUERY HISTORY</span></button><div id="history-list" class="history-list"><p class="muted small">Executed queries appear here.</p></div></section>
+      <div class="sidebar-footer"><span class="privacy-icon">◈</span><span>Local workspace · Your data stays on this device</span></div>
+    </div>
+  </aside>
+
+  <main class="editor-workspace">
+    <div class="tab-strip">
+      <div class="editor-tab active" id="query-tab"><span class="tab-file-icon">▤</span><span>query.sql</span><span class="tab-close">×</span></div>
+      <button class="new-tab" id="add-tab" title="New SQL tab">＋</button>
+      <div class="tab-strip-spacer"></div>
+      <button class="tab-action" id="copy-sql" title="Copy SQL">▢</button><button class="tab-action" id="download-sql" title="Download SQL">⇩</button>
+    </div>
+
+    <section class="code-pane">
+      <div class="editor-toolbar">
+        <div class="breadcrumbs"><span>My Database</span><span class="crumb-separator">›</span><span>query.sql</span></div>
+        <div class="editor-controls"><span class="shortcut-hint">⌘ ↵ Run</span><button class="tool-button" id="format">Format</button><button class="tool-button" id="clear">Clear</button><button class="run-button" id="run"><span>▶</span> Run Query</button></div>
+      </div>
+      <div class="editor-frame"><div id="editor" aria-label="SQL editor"></div></div>
+      <div class="editor-footer"><span>SQL <span class="footer-dot">•</span> SQLite</span><span id="cursor">Ln 1, Col 1</span><span>UTF-8</span><span>Spaces: 2</span></div>
+    </section>
+
+    <div class="panel-resize" id="panel-resize" title="Drag to resize results panel"><span></span></div>
+    <section class="output-section" id="output-section">
+      <div class="output-toolbar">
+        <div class="panel-tabs"><button class="panel-tab active" data-panel-tab="results">Results <span class="count" id="row-count">—</span></button><button class="panel-tab" data-panel-tab="messages">Messages</button><button class="panel-tab" data-panel-tab="schema">Structure</button></div>
+        <div class="output-actions"><span id="duration" class="duration">Ready</span><button class="export-csv" id="csv" disabled>⇩ Export CSV</button><button class="panel-icon" id="panel-toggle" title="Hide output panel">⌄</button></div>
+      </div>
+      <div class="result-tabs" id="result-tabs" hidden></div>
+      <div class="output-content" data-panel="results" id="result-content"><div class="welcome-state"><div class="welcome-icon">⌘</div><strong>Ready to execute</strong><span>Write a SQL query and press Run Query.</span><button id="example" class="text-button">Load example query</button></div></div>
+      <div class="output-content" data-panel="messages" hidden><pre class="message-content" id="message-content">Execution messages appear here.</pre></div>
+      <div class="output-content" data-panel="schema" hidden><div id="schema-content" class="schema-content muted">Select a table to inspect its structure.</div></div>
+    </section>
+    <footer class="statusbar"><span id="status" data-state="busy"><span class="status-led"></span>Initializing database…</span><span class="status-right"><span id="status-selection">No selection</span><span>SQLite</span><span>Local</span></span></footer>
+    <div id="startup-error" class="startup-error" hidden></div>
+  </main>
 </div>
+<div class="settings-popover" id="settings-popover" hidden><div class="settings-title">Editor settings</div><label>Font size <select id="font-size"><option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label><input type="checkbox" id="line-wrap" checked> Word wrap</label><label><input type="checkbox" id="zen-mode"> Zen mode</label></div>
 <input id="database-file" type="file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3" hidden>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="./app.js"></script>
