@@ -219,3 +219,37 @@ test('editor preferences survive a reload', async ({ page }) => {
   await expect(page.locator('#line-wrap')).not.toBeChecked();
   await expect(page.locator('#editor')).toHaveClass(/no-wrap/);
 });
+
+
+test('quick-start templates insert editable SQL without executing it', async ({ page }) => {
+  await page.locator('[data-template="create"]').click();
+  await expect(page.locator('.cm-content')).toContainText('CREATE TABLE new_table');
+  await expect(page.locator('#message-content')).toContainText('Execution messages appear here.');
+  await page.locator('[data-template="join"]').click();
+  await expect(page.locator('.cm-content')).toContainText('JOIN departments');
+});
+
+test('SQL search remains usable while navigating matches', async ({ page }) => {
+  await page.locator('[data-activity="search"]').click();
+  const search = page.locator('#sidebar-search');
+  await search.fill('SELECT');
+  await expect(page.locator('#search-hint')).toContainText(/\d+ of \d+ matches/);
+  await expect(search).toBeFocused();
+  await page.locator('#search-next').click();
+  await expect(search).toBeFocused();
+  await search.fill('text-that-does-not-exist');
+  await expect(page.locator('#search-hint')).toContainText('No matches found');
+  await search.press('Escape');
+  await expect(search).toHaveValue('');
+});
+
+test('workspace remains usable at narrow phone width', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await expect(page.locator('#run')).toBeVisible();
+  await expect(page.locator('#editor')).toBeVisible();
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    page: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
+});
