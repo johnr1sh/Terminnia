@@ -1,7 +1,8 @@
-import { basicSetup, EditorView } from 'https://esm.sh/codemirror@6.0.1';
-import { sql } from 'https://esm.sh/@codemirror/lang-sql@6.10.0';
-import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
-import { format as formatSQL } from 'https://esm.sh/sql-formatter@15.10.0';
+import { basicSetup } from 'codemirror';
+import { EditorView } from '@codemirror/view';
+import { sql } from '@codemirror/lang-sql';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { format as formatSQL } from 'sql-formatter';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
