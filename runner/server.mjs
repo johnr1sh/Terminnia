@@ -174,8 +174,8 @@ async function executeSql(session, sql, credentials = {}) {
   }
   session.lastUsedAt = Date.now();
   for (const statement of statements) {
-    const use = statement.match(/^\\s*USE\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))\\s*$/i);
-    const drop = statement.match(/^\\s*DROP\\s+DATABASE(?:\\s+IF\\s+EXISTS)?\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))/i);
+    const use = statement.match(/^\s*USE\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))\s*$/i);
+    const drop = statement.match(/^\s*DROP\s+DATABASE(?:\\s+IF\\s+EXISTS)?\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))/i);
     if (use) session.currentDatabase = (use[1] || use[2]).replace(/``/g, '`');
     if (drop && (drop[1] || drop[2]) === session.currentDatabase) session.currentDatabase = null;
   }
