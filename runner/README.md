@@ -13,6 +13,18 @@ RUNNER_ALLOWED_ORIGINS=http://localhost:4173 NODE_ENV=development node runner/se
 
 The runner listens on port 8787. The Docker socket/CLI is a host-root-equivalent control plane. Run this service only on a dedicated, disposable VM whose Docker daemon contains no unrelated workloads. Do not mount a general-purpose host Docker socket into an untrusted multi-tenant application.
 
+## Deployment template
+
+A constrained Docker Compose template is provided at `compose.runner.yml`. On a dedicated Docker-capable Linux VM, copy `runner/.env.example` to the project-root `.env`, replace the example frontend origin and MySQL image placeholder with a reviewed immutable digest, then run:
+
+\`\`\`sh
+cp runner/.env.example .env
+# Edit .env before starting the service.
+docker compose -f compose.runner.yml up -d --build
+\`\`\`
+
+The API binds to `127.0.0.1` on the host so a separately configured TLS reverse proxy can expose it. Do not publish port 8787 directly to the internet. The mounted Docker socket gives the runner root-equivalent control of the dedicated host.
+
 ## API
 
 - `POST /api/sandboxes` creates a sandbox and returns its ID and one-time bearer capability.
