@@ -35,10 +35,11 @@ test('executes SQL with bearer authorization and no persistent credentials', asy
     }
   });
   await adapter.connect();
-  const result = await adapter.execute('SELECT 42');
+  const result = await adapter.execute('SELECT 42', { username: 'student', password: 'student-pass' });
   assert.equal(result.results[0].values[0][0], '42');
   assert.equal(calls[1].options.headers.authorization, 'Bearer secret-token-which-is-long-enough-1234567890');
   assert.equal(calls[1].options.credentials, 'omit');
+  assert.deepEqual(JSON.parse(calls[1].options.body), { sql: 'SELECT 42', username: 'student', password: 'student-pass' });
 });
 
 test('maps table metadata and MySQL column descriptions', async () => {
