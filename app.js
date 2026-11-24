@@ -277,7 +277,6 @@ async function initialize() {
     status('Ready · data stored in this browser');await refreshTables();renderHistory();
     if(!saved)toast('Welcome to Terminnia. Sample database loaded.');
     if(localStorage.getItem('terminnia-engine-mode')==='mysql' && MYSQL_RUNNER_URL) await switchToMysql();
-    if(localStorage.getItem('terminnia-engine-mode')==='mysql' && MYSQL_RUNNER_URL) await switchToMysql();
   }catch(e){console.error(e);$('#connection').textContent='Database unavailable';$('#startup-error').hidden=false;$('#startup-error').textContent=e.message+' Check your connection and reload.';status('Startup failed','error');}
 }
 
