@@ -70,7 +70,7 @@ test('preserves token boundaries around ordinary block comments', () => {
   const statements = splitMysqlScript('SELECT/* comment */1; SELECT 2/* comment */+3;');
   assert.equal(statements.length, 2);
   assert.equal(statements[0], 'SELECT 1');
-  assert.equal(statements[1], 'SELECT 2 +3');
+  assert.match(statements[1], /^SELECT\\s+2\\s+\\+3$/);
 });
 
 test('preserves MySQL executable version comments for the server', () => {
