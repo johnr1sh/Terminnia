@@ -33,9 +33,7 @@ export class SQLiteAdapter extends DatabaseAdapter {
   async execute(sql, options = {}) {
     this.#requireConnection();
     if (typeof sql !== 'string' || !sql.trim()) throw new TypeError('SQL must be a non-empty string.');
-    const result = await this.transport.request('exec', { sql, ...options });
-    if (!result?.ok) throw new Error(result?.error?.message || 'SQLite query failed.');
-    return result;
+    return this.transport.request('exec', { ...options, sql });
   }
 
   async listObjects(types = ['table', 'view']) {
