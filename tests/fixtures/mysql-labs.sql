@@ -1,9 +1,11 @@
 -- Real MySQL 8.4 acceptance fixture derived from the supplied laboratory activities.
 -- Run only inside a disposable CI/test MySQL instance.
 
-DROP DATABASE IF EXISTS terminnia_mysql_ci;
-CREATE DATABASE terminnia_mysql_ci;
-USE terminnia_mysql_ci;
+DROP DATABASE IF EXISTS terminnia_mysql_advanced_ci;
+DROP DATABASE IF EXISTS terminnia_mysql_join_ci;
+CREATE DATABASE terminnia_mysql_advanced_ci;
+CREATE DATABASE terminnia_mysql_join_ci;
+USE terminnia_mysql_advanced_ci;
 
 DROP USER IF EXISTS 'student_user'@'localhost';
 DROP USER IF EXISTS 'teacher_user'@'localhost';
@@ -32,6 +34,13 @@ INSERT INTO students (student_name, program, year_level, tuition_fee, amount_pai
 ('Grace Aquino', 'BSHM', 3, 22000, 10000),
 ('Zero Payment', 'BSIT', 1, 25000, 0);
 
+USE terminnia_mysql_join_ci;
+CREATE TABLE students (
+  student_id INT PRIMARY KEY,
+  student_name VARCHAR(100),
+  address VARCHAR(100),
+  age INT
+);
 CREATE TABLE courses (
   course_id INT PRIMARY KEY,
   course_name VARCHAR(100),
@@ -45,6 +54,13 @@ CREATE TABLE enrollments (
   FOREIGN KEY (student_id) REFERENCES students(student_id),
   FOREIGN KEY (course_id) REFERENCES courses(course_id)
 );
+INSERT INTO students VALUES
+(101, 'John', 'Hinunangan', 20),
+(102, 'Mark', 'Sogod', 21),
+(103, 'Anna', 'Maasin', 19),
+(104, 'Peter', 'Hinunangan', 22),
+(105, 'Sarah', 'Silago', 20),
+(106, 'James', 'Bontoc', 23);
 INSERT INTO courses VALUES
 (201, 'Database Management', 'Mr. Santos'),
 (202, 'Networking', 'Mr. Cruz'),
@@ -52,13 +68,13 @@ INSERT INTO courses VALUES
 (204, 'Programming', 'Mr. Garcia'),
 (205, 'Cybersecurity', 'Ms. Lopez');
 INSERT INTO enrollments VALUES
-(1, 1, 201, '2026-01-10'),
-(2, 2, 202, '2026-01-11'),
-(3, 3, 201, '2026-01-12'),
-(4, 4, 203, '2026-01-13'),
-(5, 1, 204, '2026-01-14'),
-(6, 5, 202, '2026-01-15'),
-(7, 3, 203, '2026-01-16');
+(1, 101, 201, '2026-01-10'),
+(2, 102, 202, '2026-01-11'),
+(3, 103, 201, '2026-01-12'),
+(4, 104, 203, '2026-01-13'),
+(5, 101, 204, '2026-01-14'),
+(6, 105, 202, '2026-01-15'),
+(7, 103, 203, '2026-01-16');
 
 -- JOIN acceptance queries.
 SELECT s.student_name, c.course_name
@@ -80,6 +96,17 @@ FROM courses AS c
 LEFT JOIN enrollments AS e ON e.course_id = c.course_id
 GROUP BY c.course_id, c.course_name
 HAVING COUNT(e.enrollment_id) >= 2;
+SELECT s.student_name, s.address, c.course_name, c.instructor, e.enrollment_date
+FROM students AS s
+LEFT JOIN enrollments AS e ON e.student_id = s.student_id
+LEFT JOIN courses AS c ON c.course_id = e.course_id;
+SELECT s.student_name, s.address, c.course_name, c.instructor
+FROM students AS s
+INNER JOIN enrollments AS e ON e.student_id = s.student_id
+INNER JOIN courses AS c ON c.course_id = e.course_id
+WHERE s.address = 'Hinunangan';
+
+USE terminnia_mysql_advanced_ci;
 
 -- GROUP BY and HAVING acceptance queries.
 SELECT program, COUNT(*) AS student_count
@@ -211,7 +238,7 @@ CREATE USER 'teacher_user'@'localhost' IDENTIFIED BY 'teacher_ci_pw';
 CREATE USER 'report_user'@'localhost' IDENTIFIED BY 'report_ci_pw';
 CREATE USER 'admin_assistant'@'localhost' IDENTIFIED BY 'assistant_ci_pw';
 
-GRANT SELECT ON terminnia_mysql_ci.students TO 'student_user'@'localhost';
+GRANT SELECT ON terminnia_mysql_advanced_ci.students TO 'student_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON terminnia_mysql_ci.students TO 'teacher_user'@'localhost';
 GRANT SELECT ON terminnia_mysql_ci.students TO 'report_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE ON terminnia_mysql_ci.students TO 'admin_assistant'@'localhost';
