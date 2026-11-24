@@ -196,7 +196,7 @@ $('#import-db').onclick=()=>$('#database-file').click();
 $('#database-file').onchange=async e=>{const f=e.target.files?.[0];if(f)try{await importDb(f);}catch(err){toast(err.message,true);}finally{e.target.value='';}};
 $('#download-sql').onclick=()=>download('query.sql',editor?.state.doc.toString()||'','text/sql;charset=utf-8');
 $('#copy-sql').onclick=async()=>{try{await navigator.clipboard.writeText(editor.state.doc.toString());toast('SQL copied.');}catch{toast('Clipboard permission unavailable.',true);}};
-$('#sidebar-toggle').onclick=()=>$('#sidebar').classList.toggle('open');
+// Mobile sidebar is opened by the activity bar; the sidebar itself has no separate toggle control.
 $('#new-table').onclick=()=>{editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:'CREATE TABLE new_table (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL\n);'}});editor.focus();};
 $('#refresh-tables').onclick=()=>refreshTables().catch(e=>toast(e.message,true));
 document.querySelectorAll('[data-panel-tab]').forEach(b=>b.onclick=()=>switchPanel(b.dataset.panelTab));
