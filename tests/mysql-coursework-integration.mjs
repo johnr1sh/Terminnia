@@ -43,8 +43,8 @@ try {
   const joins = await run(joinScript);
   assert.equal(joins.status, 200, JSON.stringify(joins.body));
   const joinSets = joins.body.results || [];
-  assert.ok(joinSets.some(set => set.rowCount === 7), 'INNER JOIN/registrar report must return seven rows');
-  assert.ok(joinSets.some(set => set.rowCount === 8), 'LEFT/RIGHT JOIN must return eight rows');
+  assert.ok(joinSets.some(set => set.rowCount === 7), 'INNER JOIN/registrar report must return seven rows; received result sets: ' + JSON.stringify(joinSets.map(set => ({ columns: set.columns, rowCount: set.rowCount, sample: set.values?.slice(0, 2) }))));
+  assert.ok(joinSets.some(set => set.rowCount === 8), 'LEFT/RIGHT JOIN must return eight rows; received: ' + JSON.stringify(joinSets.map(set => ({ columns: set.columns, rowCount: set.rowCount }))));
   assert.ok(joinSets.some(set => set.rowCount === 30), 'CROSS JOIN must return thirty rows');
   assert.ok(joinSets.some(set => set.rowCount === 3), 'HAVING >= 2 must return three courses');
   assert.ok(has(joins, row => row.includes('James')), 'anti-join challenge must find James');
