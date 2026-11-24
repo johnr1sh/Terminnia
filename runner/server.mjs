@@ -127,6 +127,7 @@ async function createContainer(session) {
   throw new Error('The isolated MySQL server did not become ready in time.');
 }
 function decodeCell(value) {
+  if (value === '\\N') return null;
   return value.replace(/\\\\/g, '\\').replace(/\\t/g, '\t').replace(/\\n/g, '\n').replace(/\\r/g, '\r');
 }
 function parseMysqlOutput(output) {
