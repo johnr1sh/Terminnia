@@ -6,7 +6,7 @@ A free, anonymous, browser-based SQL workspace with a focused editor and a local
 
 Terminnia is being developed for students who only have a phone or tablet and need to complete MySQL laboratory work in a browser. The supplied coursework requires a real MySQL server, including stored procedures, stored functions, CREATE USER, GRANT, and REVOKE. The current local SQLite engine does not support those MySQL-specific exercises and must not be represented as MySQL.
 
-The implementation plan is to retain Local SQLite as an offline mode and add a separate, isolated MySQL Lab backed by disposable MySQL sandboxes. An initial Docker-based runner service now exists in `runner/`, but it is not deployed or connected to the editor. It is not yet safe to expose publicly. See [the MySQL Learning Sandbox architecture and acceptance tests](docs/MYSQL-LEARNING-SANDBOX.md) and the [runner deployment requirements](runner/README.md).
+The implementation plan is to retain Local SQLite as an offline mode and add a separate, isolated MySQL Lab backed by disposable MySQL sandboxes. An initial Docker-based runner service and remote adapter now exist in `runner/` and `database/mysql-sandbox-adapter.mjs`, but they are not deployed or connected to the editor. It is not yet safe to expose publicly. See [the MySQL Learning Sandbox architecture and acceptance tests](docs/MYSQL-LEARNING-SANDBOX.md) and the [runner deployment requirements](runner/README.md).
 
 ## Current capabilities
 
