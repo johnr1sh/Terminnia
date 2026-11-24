@@ -149,7 +149,7 @@ function parseMysqlOutput(output) {
   }
   return results;
 }
-async function executeSql(session, sql) {
+async function executeSql(session, sql, credentials = {}) {
   if (typeof sql !== 'string' || !sql.trim()) throw Object.assign(new Error('SQL must be a non-empty string.'), { status: 400 });
   if (Buffer.byteLength(sql, 'utf8') > MAX_SQL_BYTES) throw Object.assign(new Error('SQL script exceeds the 64 KB limit.'), { status: 413 });
   const statements = splitMysqlScript(sql);
@@ -158,9 +158,11 @@ async function executeSql(session, sql) {
   // a random delimiter so procedure/function bodies remain intact.
   const delimiter = '__TERM_' + randomBytes(8).toString('hex') + '__';
   const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + delimiter).join('\n') + '\nDELIMITER ;\n';
+  const username = credentials.username || 'root';
+  const password = credentials.username ? credentials.password : session.dbPassword;
   const output = await docker([
-    'exec', '-i', '-e', 'MYSQL_PWD=' + session.dbPassword, session.containerId,
-    'mysql', '--protocol=socket', '-uroot', ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
+    'exec', '-i', '-e', 'MYSQL_PWD=' + password, session.containerId,
+    'mysql', '--protocol=socket', '--user=' + username, ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
     '--default-character-set=utf8mb4', '--skip-line-numbers'
   ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
   session.lastUsedAt = Date.now();
@@ -234,7 +236,11 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       let body;
       try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Request must contain valid JSON.' }, origin); }
-      const result = await executeSql(session, body.sql);
+      const hasCredentials = Object.hasOwn(body, 'username') || Object.hasOwn(body, 'password');
+      if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256)) {
+        return send(res, 400, { error: 'Provide a valid MySQL username and a password no longer than 256 bytes.' }, origin);
+      }
+      const result = await executeSql(session, body.sql, hasCredentials ? { username: body.username, password: body.password } : {});
       return send(res, 200, result, origin);
     }
     if (route.action === 'schema' && req.method === 'GET') {
