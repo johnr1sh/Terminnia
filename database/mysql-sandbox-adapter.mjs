@@ -56,9 +56,18 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
       payload.username = options.username;
       payload.password = options.password;
     }
-    return this.#request('/api/sandboxes/' + this.#session.id + '/execute', {
+    const started = globalThis.performance?.now?.() ?? Date.now();
+    const body = await this.#request('/api/sandboxes/' + this.#session.id + '/execute', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
     });
+    return {
+      ...body,
+      ok: true,
+      durationMs: body.durationMs ?? ((globalThis.performance?.now?.() ?? Date.now()) - started),
+      rowsChanged: body.rowsChanged ?? null,
+      snapshotSaved: false,
+      snapshotDeferred: false
+    };
   }
 
   async listObjects(types = ['table', 'view']) {
