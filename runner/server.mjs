@@ -159,11 +159,19 @@ async function executeSql(session, sql, credentials = {}) {
   const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + delimiter).join('\n') + '\nDELIMITER ;\n';
   const username = credentials.username || 'root';
   const password = credentials.username ? credentials.password : session.dbPassword;
-  const output = await docker([
-    'exec', '-i', '-e', 'MYSQL_PWD=' + password, session.containerId,
-    'mysql', '--protocol=socket', '--user=' + username, ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
-    '--default-character-set=utf8mb4', '--skip-line-numbers'
-  ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
+  let output;
+  try {
+    output = await docker([
+      'exec', '-i', '-e', 'MYSQL_PWD=' + password, session.containerId,
+      'mysql', '--protocol=socket', '--user=' + username, ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
+      '--default-character-set=utf8mb4', '--skip-line-numbers'
+    ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
+  } catch (error) {
+    if (error.code === 'DOCKER_FAILED') {
+      throw Object.assign(new Error(error.message.slice(0, 4000) || 'MySQL rejected the SQL script.'), { code: 'MYSQL_QUERY_FAILED', status: 422 });
+    }
+    throw error;
+  }
   session.lastUsedAt = Date.now();
   for (const statement of statements) {
     const use = statement.match(/^\\s*USE\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))\\s*$/i);
@@ -195,7 +203,7 @@ async function createSession() {
   const session = {
     id, tokenHash: sha(token), dbPassword: randomBytes(32).toString('base64url'),
     containerName: 'terminnia-mysql-' + id, containerId: null,
-    createdAt: Date.now(), lastUsedAt: Date.now(), currentDatabase: null
+    createdAt: Date.now(), lastUsedAt: Date.now(), currentDatabase: null, busy: false
   };
   try { await createContainer(session); }
   catch (error) { await removeContainer(session.containerId); throw error; }
@@ -240,8 +248,12 @@ const server = http.createServer(async (req, res) => {
       if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256)) {
         return send(res, 400, { error: 'Provide a valid MySQL username and a password no longer than 256 bytes.' }, origin);
       }
-      const result = await executeSql(session, body.sql, hasCredentials ? { username: body.username, password: body.password } : {});
-      return send(res, 200, result, origin);
+      if (session.busy) return send(res, 409, { error: 'This sandbox is already executing a query. Wait for it to finish.' }, origin);
+      session.busy = true;
+      try {
+        const result = await executeSql(session, body.sql, hasCredentials ? { username: body.username, password: body.password } : {});
+        return send(res, 200, result, origin);
+      } finally { session.busy = false; }
     }
     if (route.action === 'schema' && req.method === 'GET') {
       if (!session.currentDatabase) return send(res, 200, { objects: [] }, origin);
@@ -249,6 +261,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { objects: result.results[0]?.values || [] }, origin);
     }
     if (route.action === 'reset' && req.method === 'POST') {
+      if (session.busy) return send(res, 409, { error: 'Wait for the current query to finish before resetting this sandbox.' }, origin);
       await removeContainer(session.containerId);
       session.containerId = null;
       session.currentDatabase = null;
@@ -258,6 +271,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, engine: 'MySQL 8.4' }, origin);
     }
     if (route.action === 'session' && req.method === 'DELETE') {
+      if (session.busy) return send(res, 409, { error: 'Wait for the current query to finish before deleting this sandbox.' }, origin);
       await destroySession(session);
       return send(res, 200, { ok: true }, origin);
     }
@@ -267,7 +281,8 @@ const server = http.createServer(async (req, res) => {
     // stopped. Destroy the disposable container on timeout/output overflow.
     if (error.code === 'ETIMEDOUT' || error.code === 'OUTPUT_LIMIT') await destroySession(session);
     const status = error.status || (error.code === 'ETIMEDOUT' ? 408 : 422);
-    return send(res, status, { error: status === 408 ? 'SQL execution timed out.' : 'SQL execution failed.', detail: process.env.NODE_ENV === 'development' ? error.message : undefined }, origin);
+    const detail = error.code === 'MYSQL_QUERY_FAILED' ? error.message : process.env.NODE_ENV === 'development' ? error.message : undefined;
+    return send(res, status, { error: status === 408 ? 'SQL execution timed out.' : error.code === 'MYSQL_QUERY_FAILED' ? 'MySQL rejected the SQL statement.' : 'SQL execution failed.', detail }, origin);
   }
 });
 server.headersTimeout = 10_000;
