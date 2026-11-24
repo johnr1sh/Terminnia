@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
 const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1';
 const SAMPLE = 'SELECT e.name, e.department, e.salary, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department\nORDER BY e.salary DESC;';
-let editor, worker, seq = 0, ready = false, tableName = null, results = [], columns = [], rows = [];
+let editor, worker, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [];
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
@@ -67,6 +67,7 @@ function switchPanel(name) {
 function message(text,error=false) {const n=$('#message-content');n.textContent=text;n.className=error?'message-content error':'message-content';switchPanel('messages');}
 function cell(value) {const n=document.createElement('td');n.textContent=value===null?'NULL':String(value);if(value===null)n.className='null-value';return n;}
 function renderResult(result,index=0) {
+  currentResultIndex=index;
   columns=result.columns||[];rows=result.values||[];$('#row-count').textContent=result.rowCount??rows.length;$('#csv').disabled=!columns.length;
   const host=$('#result-content');host.replaceChildren();
   if(!columns.length){host.textContent='Statement executed successfully. No result set was returned.';return;}
@@ -82,7 +83,7 @@ function renderResult(result,index=0) {
 }
 function renderResultTabs() {
   const host=$('#result-tabs');host.replaceChildren();host.hidden=results.length<2;
-  results.forEach((r,i)=>{const b=document.createElement('button');b.className='result-tab'+(i===0?' active':'');b.textContent='Result '+(i+1)+' ('+(r.rowCount??r.values.length)+')';b.onclick=()=>{renderResult(r,i);host.querySelectorAll('button').forEach((x,j)=>x.classList.toggle('active',i===j));};host.append(b);});
+  results.forEach((r,i)=>{const b=document.createElement('button');b.className='result-tab'+(i===currentResultIndex?' active':'');b.textContent='Result '+(i+1)+' ('+(r.rowCount??r.values.length)+')';b.onclick=()=>{renderResult(r,i);host.querySelectorAll('button').forEach((x,j)=>x.classList.toggle('active',i===j));};host.append(b);});
 }
 async function refreshTables() {
   const r=await call('tables');if(!r.ok)throw new Error(r.error?.message||'Cannot read tables.');
