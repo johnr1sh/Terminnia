@@ -30,6 +30,26 @@ function metadata() {
   };
 }
 
+const CDN_BASES = [
+  'https://cdn.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/',
+  'https://unpkg.com/sql.js@' + VERSION + '/dist/',
+  'https://fastly.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/'
+];
+
+async function loadSqlJs() {
+  const failures = [];
+  for (const base of CDN_BASES) {
+    try {
+      if (typeof self.initSqlJs !== 'function') importScripts(base + 'sql-wasm.js');
+      if (typeof self.initSqlJs !== 'function') throw new Error('SQL.js loader did not expose initSqlJs.');
+      return await self.initSqlJs({ locateFile: (file) => base + file });
+    } catch (error) {
+      failures.push(base + ': ' + (error?.message || String(error)));
+    }
+  }
+  throw new Error('SQLite WebAssembly could not be initialized from the available CDNs. ' + failures.join(' | '));
+}
+
 function normalizeResults(results) {
   const MAX_ROWS = 5000;
   return results.map((result) => ({
@@ -44,12 +64,7 @@ self.onmessage = async (event) => {
   const { id, action, sql, buffer, name } = event.data || {};
   try {
     if (action === 'init') {
-      if (!SQL) {
-        importScripts('https://cdn.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/sql-wasm.js');
-        SQL = await self.initSqlJs({
-          locateFile: (file) => 'https://cdn.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/' + file
-        });
-      }
+      if (!SQL) SQL = await loadSqlJs();
       db = buffer ? new SQL.Database(new Uint8Array(buffer)) : new SQL.Database();
       if (!buffer) {
         db.run("CREATE TABLE departments(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, budget REAL); CREATE TABLE employees(id INTEGER PRIMARY KEY, name TEXT NOT NULL, department TEXT NOT NULL, salary REAL, hired_on TEXT DEFAULT CURRENT_DATE); INSERT INTO departments(name,budget) VALUES('Engineering',180000),('Design',90000),('Operations',120000); INSERT INTO employees(name,department,salary) VALUES('Alex Morgan','Engineering',85000),('Maria Santos','Design',72000),('Jordan Lee','Engineering',91000),('Sam Rivera','Operations',65000),('Taylor Kim','Design',78000);");
