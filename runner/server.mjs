@@ -205,7 +205,10 @@ async function executeSql(session, sql, credentials = {}) {
     ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
   } catch (error) {
     if (error.code === 'DOCKER_FAILED') {
-      throw Object.assign(new Error(error.message.slice(0, 4000) || 'MySQL rejected the SQL script.'), { code: 'MYSQL_QUERY_FAILED', status: 422 });
+      const state = await docker(['inspect', '--format', '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}', session.containerId], { timeout: 5_000, maxOutput: 4_000 }).catch(e => 'inspect failed: ' + e.message);
+      const logs = await docker(['logs', '--tail', '80', session.containerId], { timeout: 5_000, maxOutput: 16_000 }).catch(e => 'logs failed: ' + e.message);
+      const diagnostics = process.env.NODE_ENV === 'development' ? '\\nContainer: ' + state + '\\nMySQL logs:\\n' + logs : '';
+      throw Object.assign(new Error((error.message.slice(0, 2000) || 'MySQL rejected the SQL script.') + diagnostics), { code: 'MYSQL_QUERY_FAILED', status: 422 });
     }
     throw error;
   } finally {
