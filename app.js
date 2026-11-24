@@ -326,8 +326,8 @@ function setActivity(name) {
       };
       searchInput.addEventListener('input',()=>updateSearch(0));
       searchInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();updateSearch(e.shiftKey?-1:1);}if(e.key==='Escape'){searchInput.value='';updateSearch(0);}});
-      $('#search-prev').onclick=()=>updateSearch(-1);
-      $('#search-next').onclick=()=>updateSearch(1);
+      $('#search-prev').onclick=()=>{updateSearch(-1);searchInput.focus({preventScroll:true});};
+      $('#search-next').onclick=()=>{updateSearch(1);searchInput.focus({preventScroll:true});};
     }
     $('#sidebar-search').parentElement.hidden=false;
   } else if($('#sidebar-search')) $('#sidebar-search').parentElement.hidden=true;
