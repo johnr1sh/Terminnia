@@ -1,6 +1,6 @@
 # Terminnia hybrid database architecture decision
 
-Status: Stage 2 architecture decision
+Status: Stage 2 architecture documented; shared adapter contract and local SQLite adapter implemented
 Baseline: `main` after the Stage 1 reliability commits
 Product direction: local-first hybrid SQL workspace
 
@@ -124,12 +124,16 @@ The UI must depend on engine-neutral operations, not on SQL.js internals:
 - `listForeignKeys(name)`
 - `getCapabilities()`
 
-Adapters:
-- `SQLiteAdapter`: browser Worker + SQL.js + IndexedDB snapshot persistence.
+Implemented in the current source:
+- `database/adapter.mjs`: engine-neutral adapter contract and runtime shape validation.
+- `database/sqlite-adapter.mjs`: SQLite implementation over the existing SQL worker transport.
+- `app.js`: routes local connection, query execution, object listing, and schema inspection through `SQLiteAdapter` without changing the workspace UI.
+
+Still planned, not implemented:
 - `MySQLAdapter`: HTTPS connector client; MySQL dialect and MySQL metadata.
 - `MariaDBAdapter`: HTTPS connector client; MariaDB dialect and MariaDB metadata.
 
-MySQL and MariaDB may share a driver initially, but the engine identity and capability differences must remain explicit. Do not reuse SQLite formatting or SQLite schema SQL for remote engines.
+The SQLite adapter also exposes index and foreign-key metadata methods and explicit engine capabilities. MySQL and MariaDB may share a driver initially, but the engine identity and capability differences must remain explicit. Do not reuse SQLite formatting or SQLite schema SQL for remote engines.
 
 ## Connection lifecycle and user experience
 
@@ -147,6 +151,7 @@ MySQL and MariaDB may share a driver initially, but the engine identity and capa
 - [x] Identify the static-egress restriction and its paid-plan implications.
 - [x] Define a stateless adapter/API boundary.
 - [x] Define security requirements for anonymous remote access.
+- [x] Implement and test the shared adapter contract and worker-backed SQLite adapter without changing the UI.
 - [ ] Build a minimal connector proof of concept against a real MySQL/MariaDB test database.
 - [ ] Verify TLS, connection lifecycle, query timeout, and result limits against a real database.
 - [ ] Verify the deployment plan and shared rate-limit/abuse controls.
