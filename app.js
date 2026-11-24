@@ -77,8 +77,8 @@ async function recoverWorker(reason) {
     $('#startup-error').hidden=true;
     updateEngineChrome();
     await refreshTables();
-    status('Ready · local database restored');
-    toast('Database engine recovered. Your last saved database was restored.');
+    status(activeEngine === 'mysql' ? 'MySQL Lab ready · local engine recovered' : 'Ready · local database restored');
+    toast('Local database engine recovered.');
   }catch(error){
     ready=false;
     $('#connection').textContent='Database unavailable';
@@ -196,12 +196,12 @@ async function run() {
     if(r.ok){
       await refreshTables();remember(query);$('#duration').textContent=(r.durationMs||0).toFixed(1)+' ms';
       const completion = activeEngine === 'mysql'
-        ? 'Query completed successfully.\\nMySQL 8.4 · Temporary isolated sandbox\\nResult sets: '+results.length+'\\nExecution: '+(r.durationMs||0).toFixed(2)+' ms\\nRows changed: '+(r.rowsChanged ?? 'Not reported')
-        : 'Query completed successfully.\\nResult sets: '+results.length+'\\nRows changed: '+r.rowsChanged+'\\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\\nSave will complete after the transaction is committed.':r.snapshotSaved?'\\nDatabase snapshot saved locally.':'\\nNo database changes; the existing local snapshot remains current.');
+        ? 'Query completed successfully.\nMySQL 8.4 · Temporary isolated sandbox\nResult sets: '+results.length+'\nExecution: '+(r.durationMs||0).toFixed(2)+' ms\nRows changed: '+(r.rowsChanged ?? 'Not reported')
+        : 'Query completed successfully.\nResult sets: '+results.length+'\nRows changed: '+r.rowsChanged+'\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\nSave will complete after the transaction is committed.':r.snapshotSaved?'\nDatabase snapshot saved locally.':'\nNo database changes; the existing local snapshot remains current.');
       message(completion);
       switchPanel(results.length?'results':'messages');status(activeEngine === 'mysql' ? 'Ready · MySQL 8.4 sandbox' : 'Ready · local database saved');
     }else{message(r.error?.message||'SQL execution failed.',true);$('#duration').textContent='Failed';status('SQL execution failed','error');}
-  }catch(e){message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
+  }catch(e){if(activeEngine==='mysql' && mysqlAdapter && !(await mysqlAdapter.getConnectionInfo()).connected){$('#connection').textContent='MySQL sandbox expired · reconnect';status('MySQL session expired','error');}message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
   finally{$('#run').disabled=false;$('#run').textContent='▶ Run';}
 }
 function download(name,data,type) {
@@ -273,9 +273,10 @@ async function initialize() {
         $('#status-selection').textContent=u.state.selection.main.empty?'No selection':(u.state.selection.main.to-u.state.selection.main.from)+' selected';
       })],parent:$('#editor')
     });
-    ready=true;renderTabs();applyEditorSettings();$('#engine-label').textContent='SQLite WebAssembly · Local';$('#connection').textContent='● Local database ready';
+    ready=true;renderTabs();applyEditorSettings();updateEngineChrome();
     status('Ready · data stored in this browser');await refreshTables();renderHistory();
     if(!saved)toast('Welcome to Terminnia. Sample database loaded.');
+    if(localStorage.getItem('terminnia-engine-mode')==='mysql' && MYSQL_RUNNER_URL) await switchToMysql();
     if(localStorage.getItem('terminnia-engine-mode')==='mysql' && MYSQL_RUNNER_URL) await switchToMysql();
   }catch(e){console.error(e);$('#connection').textContent='Database unavailable';$('#startup-error').hidden=false;$('#startup-error').textContent=e.message+' Check your connection and reload.';status('Startup failed','error');}
 }
@@ -445,11 +446,12 @@ async function switchToMysql() {
     updateEngineChrome();
     await refreshTables();
     $('#schema-content').textContent = 'Create or select a database with SQL, then refresh the explorer.';
-    localStorage.setItem('terminnia-engine-mode', 'mysql');
+    try { localStorage.setItem('terminnia-engine-mode', 'mysql'); } catch {}
     status('Ready · MySQL 8.4 sandbox');
     toast('MySQL 8.4 sandbox connected. Create your coursework database with CREATE DATABASE.');
   } catch (error) {
     await adapter.disconnect().catch(() => {});
+    mysqlAdapter = null;
     activeEngine = 'sqlite';
     dbAdapter = localAdapter;
     ready = true;
@@ -471,7 +473,7 @@ async function switchToSqlite() {
   ready = Boolean(localAdapter);
   tableName = null;
   updateEngineChrome();
-  localStorage.setItem('terminnia-engine-mode', 'sqlite');
+  try { localStorage.setItem('terminnia-engine-mode', 'sqlite'); } catch {}
   await refreshTables();
   status('Ready · local database saved');
 }
