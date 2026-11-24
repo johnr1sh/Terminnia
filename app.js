@@ -33,32 +33,90 @@ async function loadSaved() {
 }
 function persist(buffer) {
   if(!(buffer instanceof ArrayBuffer))return Promise.resolve();
-  saveQueue=saveQueue.then(async()=>{
+  // A failed write must not permanently poison the queue. The next snapshot
+  // gets a fresh transaction after the previous failure has been observed.
+  const operation=saveQueue.catch(()=>{}).then(async()=>{
     const d=await storage();
     try{await new Promise((resolve,reject)=>{
       const tx=d.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(buffer,KEY);
       tx.oncomplete=resolve; tx.onerror=()=>reject(tx.error); tx.onabort=()=>reject(tx.error);
     });}finally{d.close();}
   });
-  return saveQueue;
+  saveQueue=operation;
+  return operation;
+}
+let recoveringWorker=false;
+function failWorker(error, source) {
+  if(source && source!==worker)return;
+  const failed=worker;
+  worker=null;
+  ready=false;
+  failed?.terminate();
+  pending.forEach(p=>{clearTimeout(p.timer);p.reject(error);});
+  pending.clear();
+  status('Database worker stopped','error');
+  $('#connection').textContent='Recovering local database…';
+  if(!recoveringWorker)void recoverWorker(error);
+}
+async function recoverWorker(reason) {
+  if(recoveringWorker)return;
+  recoveringWorker=true;
+  try{
+    status('Restoring local database…','busy');
+    startWorker();
+    const saved=await loadSaved();
+    const transfer=saved instanceof ArrayBuffer?[saved]:[];
+    const initialized=await call('init',{buffer:saved||undefined,transfer});
+    if(!initialized.ok)throw new Error(initialized.error?.message||'Database recovery failed.');
+    ready=true;
+    $('#engine-label').textContent='SQLite WebAssembly · Local';
+    $('#connection').textContent='● Local database ready';
+    await refreshTables();
+    status('Ready · local database restored');
+    toast('Database engine recovered. Your last saved database was restored.');
+  }catch(error){
+    ready=false;
+    $('#connection').textContent='Database unavailable';
+    $('#startup-error').hidden=false;
+    $('#startup-error').textContent='Automatic recovery failed: '+error.message+' Reload Terminnia to try again.';
+    status('Database recovery failed','error');
+  }finally{
+    recoveringWorker=false;
+  }
 }
 function startWorker() {
-  worker=new Worker('./sql-worker.js');
-  worker.onmessage=async e=>{
+  const instance=new Worker('./sql-worker.js');
+  worker=instance;
+  instance.onmessage=async e=>{
+    if(instance!==worker)return;
     const data=e.data, task=pending.get(data.id); if(!task)return;
     pending.delete(data.id); clearTimeout(task.timer);
     try{if(data.snapshot instanceof ArrayBuffer)await persist(data.snapshot);task.resolve(data);}
-    catch(err){task.reject(err);}
+    catch(err){
+      if(data.stagedId)instance.postMessage({id:++seq,action:'discardImport',stagedId:data.stagedId});
+      task.reject(err);
+    }
   };
-  worker.onerror=e=>{
-    const err=new Error(e.message||'SQL worker stopped.');
-    pending.forEach(p=>{clearTimeout(p.timer);p.reject(err);});pending.clear();status('Database worker error','error');
+  instance.onerror=e=>{
+    e.preventDefault?.();
+    failWorker(new Error(e.message||'SQL worker stopped unexpectedly.'),instance);
   };
+  instance.onmessageerror=()=>failWorker(new Error('The database worker returned an unreadable message.'),instance);
 }
 function call(action,payload={}) {
   return new Promise((resolve,reject)=>{
-    const id=++seq, timer=setTimeout(()=>{pending.delete(id);reject(new Error('SQL engine timed out. Reload and try again.'));},30000);
-    pending.set(id,{resolve,reject,timer});worker.postMessage({id,action,...payload},payload.transfer||[]);
+    const target=worker;
+    if(!target){reject(new Error('Database worker is unavailable. Recovery is in progress.'));return;}
+    const id=++seq;
+    const timer=setTimeout(()=>{
+      pending.delete(id);
+      const error=new Error('SQL engine timed out. The worker is being restarted from the last saved database.');
+      reject(error);
+      failWorker(error,target);
+    },30000);
+    pending.set(id,{resolve,reject,timer});
+    try{target.postMessage({id,action,...payload},payload.transfer||[]);}
+    catch(error){clearTimeout(timer);pending.delete(id);reject(error);}
   });
 }
 function switchPanel(name) {
@@ -154,10 +212,20 @@ async function exportDb() {
   download('terminnia.sqlite',r.buffer,'application/x-sqlite3');
 }
 async function importDb(file) {
-  const buffer=await file.arrayBuffer(),r=await call('import',{buffer,transfer:[buffer]});
-  if(!r.ok)throw new Error(r.error?.message||'Import failed.');
-  if(r.snapshot instanceof ArrayBuffer)await persist(r.snapshot);
-  tableName=null;await refreshTables();$('#schema-content').textContent='Select a table to inspect its columns.';toast('Database imported and saved.');
+  const buffer=await file.arrayBuffer();
+  const staged=await call('import',{buffer,transfer:[buffer]});
+  if(!staged.ok)throw new Error(staged.error?.message||'Import validation failed.');
+  try{
+    const committed=await call('commitImport',{stagedId:staged.stagedId});
+    if(!committed.ok)throw new Error(committed.error?.message||'Could not activate imported database.');
+  }catch(error){
+    await call('discardImport',{stagedId:staged.stagedId}).catch(()=>{});
+    throw error;
+  }
+  tableName=null;
+  await refreshTables();
+  $('#schema-content').textContent='Select a table to inspect its columns.';
+  toast('Database imported and saved.');
 }
 async function initialize() {
   try{

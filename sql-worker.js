@@ -4,6 +4,8 @@
 const VERSION = '1.15.2';
 let SQL = null;
 let db = null;
+let stagedImport = null;
+let stagedImportSequence = 0;
 
 function reply(id, payload, transfer = []) {
   self.postMessage({ id, ...payload }, transfer);
@@ -118,11 +120,45 @@ self.onmessage = async (event) => {
     }
 
     if (action === 'import') {
+      if (!(buffer instanceof ArrayBuffer) || buffer.byteLength === 0) {
+        throw new Error('The selected file is empty or is not a valid SQLite database.');
+      }
       const next = new SQL.Database(new Uint8Array(buffer));
-      if (db) db.close();
-      db = next;
-      const saved = snapshot();
-      reply(id, { ok: true, snapshot: saved }, saved instanceof ArrayBuffer ? [saved] : []);
+      try {
+        const check = next.exec('PRAGMA quick_check');
+        const integrity = check[0]?.values?.[0]?.[0];
+        if (integrity !== 'ok') throw new Error('SQLite integrity check failed: ' + String(integrity || 'no result'));
+        const bytes = next.export();
+        const saved = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        if (stagedImport) stagedImport.database.close();
+        const stagedId = ++stagedImportSequence;
+        stagedImport = { id: stagedId, database: next };
+        reply(id, { ok: true, stagedId, snapshot: saved }, [saved]);
+      } catch (error) {
+        next.close();
+        throw error;
+      }
+      return;
+    }
+
+    if (action === 'commitImport') {
+      if (!stagedImport || stagedImport.id !== Number(event.data.stagedId)) {
+        throw new Error('The validated import session expired. Please import the file again.');
+      }
+      const previous = db;
+      db = stagedImport.database;
+      stagedImport = null;
+      if (previous) previous.close();
+      reply(id, { ok: true });
+      return;
+    }
+
+    if (action === 'discardImport') {
+      if (stagedImport && stagedImport.id === Number(event.data.stagedId)) {
+        stagedImport.database.close();
+        stagedImport = null;
+      }
+      reply(id, { ok: true });
       return;
     }
 
