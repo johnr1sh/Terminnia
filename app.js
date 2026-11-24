@@ -181,7 +181,7 @@ function renderHistory() {
   let list=[];
   try{
     const stored=JSON.parse(localStorage.getItem(HISTORY)||'[]');
-    if(Array.isArray(stored))list=stored.filter(q=>typeof q==='string').slice(0,30);
+    if(Array.isArray(stored)){list=stored.filter(q=>typeof q==='string'&&!hasSensitiveCredentials(q)).slice(0,30);if(list.length!==stored.length)localStorage.setItem(HISTORY,JSON.stringify(list));}
   }catch{}
   const host=$('#history-list');host.replaceChildren();
   if(!list.length){host.textContent='Executed queries appear here.';return;}
@@ -262,10 +262,10 @@ async function initialize() {
           if(typeof tab.name!=='string'||typeof tab.content!=='string')return false;
           seen.add(id);
           return true;
-        }).map(tab=>({id:Number(tab.id),name:tab.name.slice(0,120)||'query.sql',content:tab.content}));
+        }).map(tab=>({id:Number(tab.id),name:tab.name.slice(0,120)||'query.sql',content:hasSensitiveCredentials(tab.content)?'':tab.content}));
       }
     } catch { tabs=[]; }
-    if(!tabs.length)tabs=[{id:nextTabId++,name:'query.sql',content:localStorage.getItem(QUERY)||SAMPLE}];
+    if(!tabs.length){const savedQuery=localStorage.getItem(QUERY)||SAMPLE;const safeQuery=hasSensitiveCredentials(savedQuery)?'':savedQuery;if(safeQuery!==savedQuery)try{localStorage.removeItem(QUERY);}catch{}tabs=[{id:nextTabId++,name:'query.sql',content:safeQuery}];}
     nextTabId=Math.max(1,...tabs.map(t=>t.id))+1;
     activeTabId=tabs[0].id;
     editor=new EditorView({
