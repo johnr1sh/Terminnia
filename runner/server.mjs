@@ -270,6 +270,12 @@ const server = http.createServer(async (req, res) => {
     return send(res, status, { error: status === 408 ? 'SQL execution timed out.' : 'SQL execution failed.', detail: process.env.NODE_ENV === 'development' ? error.message : undefined }, origin);
   }
 });
+server.headersTimeout = 10_000;
+server.requestTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+server.maxHeadersCount = 32;
+server.maxRequestsPerSocket = 100;
+
 const sweeper = setInterval(() => {
   const now = Date.now();
   for (const session of sessions.values()) {
