@@ -228,7 +228,7 @@ function setActivity(name) {
 }
 document.querySelectorAll('[data-activity]').forEach(b=>b.addEventListener('click',()=>{
   const mobile=matchMedia('(max-width:760px)').matches;
-  if(mobile && ['explorer','database','history'].includes(b.dataset.activity)) $('#sidebar').classList.toggle('open');
+  if(mobile && ['explorer','database','history','search'].includes(b.dataset.activity)) $('#sidebar').classList.add('open');
   setActivity(b.dataset.activity);
 }));
 $('#sidebar-collapse').onclick=()=>$('#sidebar').classList.toggle('collapsed');
@@ -263,7 +263,7 @@ function switchTab(id){
 }
 function createTab(){
   if(!editor)return;
-  const tab={id:nextTabId++,name:'query-'+nextTabId+'.sql',content:''};
+  const id=nextTabId++;const tab={id,name:'query-'+id+'.sql',content:''};
   const current=tabs.find(t=>t.id===activeTabId);if(current)current.content=editor.state.doc.toString();
   tabs.push(tab);activeTabId=tab.id;saveTabs();
   editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});
