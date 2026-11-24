@@ -26,8 +26,8 @@
     <button class="activity-button" data-activity="settings" title="Settings" aria-label="Settings"><span>⚙</span></button>
   </nav>
 
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-title"><span id="sidebar-title">EXPLORER</span><div class="sidebar-tools"><button id="refresh-tables" title="Refresh" aria-label="Refresh">↻</button><button id="new-table" title="New table template" aria-label="New table">＋</button><button id="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar">‹</button></div></div>
+  <aside class="sidebar" id="sidebar" aria-label="Database explorer">
+    <div class="sidebar-title"><span id="sidebar-title">EXPLORER</span><div class="sidebar-tools"><button id="refresh-tables" title="Refresh" aria-label="Refresh">↻</button><button id="new-table" title="New table template" aria-label="New table">＋</button><button id="sidebar-collapse" title="Close sidebar" aria-label="Close sidebar">‹</button></div></div>
     <div class="sidebar-scroll">
       <section class="explorer-section">
         <button class="tree-heading" id="project-tree-toggle"><span class="tree-chevron">⌄</span><span class="tree-folder">▣</span><span>MY DATABASE</span><span class="tree-actions">•••</span></button>
@@ -48,6 +48,7 @@
       <div class="sidebar-footer"><span class="privacy-icon">◈</span><span>Local workspace · Your data stays on this device</span></div>
     </div>
   </aside>
+  <button class="drawer-backdrop" id="drawer-backdrop" type="button" aria-label="Close navigation panel" hidden></button>
 
   <main class="editor-workspace">
     <div class="tab-strip">
@@ -62,12 +63,12 @@
         <div class="breadcrumbs"><span>My Database</span><span class="crumb-separator">›</span><span>query.sql</span></div>
         <div class="editor-controls"><span class="shortcut-hint">⌘ ↵ Run</span><button class="tool-button" id="format">Format</button><button class="tool-button" id="clear">Clear</button><button class="run-button" id="run"><span>▶</span> Run Query</button></div>
       </div>
-      <div class="editor-frame"><div id="editor" aria-label="SQL editor"></div></div>
+      <div class="editor-frame"><div id="editor" role="region" aria-label="SQL code editor"></div></div>
       <div class="editor-footer"><span>SQL <span class="footer-dot">•</span> SQLite</span><span id="cursor">Ln 1, Col 1</span><span>UTF-8</span><span>Spaces: 2</span></div>
     </section>
 
     <div class="panel-resize" id="panel-resize" title="Drag to resize results panel"><span></span></div>
-    <section class="output-section" id="output-section">
+    <section class="output-section" id="output-section" aria-label="Query output">
       <div class="output-toolbar">
         <div class="panel-tabs"><button class="panel-tab active" data-panel-tab="results">Results <span class="count" id="row-count">—</span></button><button class="panel-tab" data-panel-tab="messages">Messages</button><button class="panel-tab" data-panel-tab="schema">Structure</button></div>
         <div class="output-actions"><span id="duration" class="duration">Ready</span><button class="export-csv" id="csv" disabled>⇩ Export CSV</button><button class="panel-icon" id="panel-toggle" title="Hide output panel">⌄</button></div>
@@ -81,7 +82,7 @@
     <div id="startup-error" class="startup-error" hidden></div>
   </main>
 </div>
-<div class="settings-popover" id="settings-popover" hidden><div class="settings-title">Editor settings</div><label>Font size <select id="font-size"><option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label><input type="checkbox" id="line-wrap" checked> Word wrap</label><label><input type="checkbox" id="zen-mode"> Zen mode</label></div>
+<div class="settings-popover" id="settings-popover" hidden><div class="settings-title">Editor settings</div><p class="settings-help">Changes are saved on this device.</p><label>Font size <select id="font-size"><option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label><input type="checkbox" id="line-wrap" checked> Word wrap</label><label><input type="checkbox" id="zen-mode"> Zen mode</label></div>
 <input id="database-file" type="file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3" hidden>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="./app.js"></script>
