@@ -139,7 +139,7 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
         this.#connected = false;
       }
       const message = body.error || 'MySQL sandbox request failed (' + response.status + ').';
-      throw new Error(body.detail ? message + '\\n' + body.detail : message);
+      throw new Error(body.detail ? message + '\n' + body.detail : message);
     }
     return body;
   }
