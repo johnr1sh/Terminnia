@@ -12,6 +12,7 @@ export function splitMysqlScript(source) {
   let buffer = '';
   let quote = null;
   let blockComment = false;
+  let executableComment = false;
   let lineComment = false;
   let escaped = false;
   let lineStart = true;
@@ -51,12 +52,16 @@ export function splitMysqlScript(source) {
 
     if (blockComment) {
       if (char === '*' && next === '/') {
+        if (executableComment) buffer += '*/';
+        else buffer += ' ';
         blockComment = false;
+        executableComment = false;
         i += 2;
         continue;
       }
-      if (char === '\n') {
-        buffer += '\n';
+      if (executableComment) buffer += char;
+      else if (char === '\\n') {
+        buffer += '\\n';
         lineStart = true;
       }
       i++;
@@ -84,8 +89,10 @@ export function splitMysqlScript(source) {
     }
 
     if (char === '/' && next === '*') {
+      executableComment = source[i + 2] === '!';
       blockComment = true;
-      i += 2;
+      buffer += executableComment ? '/*!' : ' ';
+      i += executableComment ? 3 : 2;
       continue;
     }
     if (char === '#' || (char === '-' && next === '-' && (!source[i + 2] || /\s/.test(source[i + 2])))) {
