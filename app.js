@@ -225,12 +225,12 @@ document.querySelectorAll('[data-activity]').forEach(b=>b.addEventListener('clic
   setActivity(b.dataset.activity);
 }));
 $('#sidebar-collapse').onclick=()=>$('#sidebar').classList.toggle('collapsed');
-$('#project-tree-toggle').onclick=()=>{const node=$('.project-meta');node.hidden=!node.hidden;$('.explorer-section .tree-group').forEach?.(()=>{});};
+$('#project-tree-toggle').onclick=()=>{const node=$('.project-meta');node.hidden=!node.hidden;$('.explorer-section').classList.toggle('tree-collapsed',node.hidden);};
 $('#tables-tree-toggle').onclick=()=>{$('#table-list').hidden=!$('#table-list').hidden;};
 $('#views-tree-toggle').onclick=()=>{$('#views-empty').hidden=!$('#views-empty').hidden;};
 $('#settings-toggle').onclick=()=>{$('#settings-popover').hidden=!$('#settings-popover').hidden;};
 $('#font-size').onchange=e=>{document.querySelector('.cm-editor').style.fontSize=e.target.value+'px';};
-$('#line-wrap').onchange=e=>editor?.dispatch({effects:EditorView.reconfigure.of([basicSetup,sql(),oneDark,...(e.target.checked?[EditorView.lineWrapping]:[])])});
+$('#line-wrap').onchange=e=>{const content=document.querySelector('.cm-content');if(content)content.style.whiteSpace=e.target.checked?'pre-wrap':'pre';};
 $('#zen-mode').onchange=e=>document.body.classList.toggle('zen-mode',e.target.checked);
 $('#panel-toggle').onclick=()=>{const panel=$('#output-section'),resize=$('#panel-resize');const hidden=panel.hidden;panel.hidden=!hidden;resize.hidden=!hidden;$('#panel-toggle').textContent=hidden?'⌄':'⌃';};
 $('#add-tab').onclick=()=>{if(!editor)return;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});editor.focus();$('#query-tab').querySelector('span:nth-child(2)').textContent='untitled.sql';toast('New SQL document ready. Download it to keep a copy.');};
