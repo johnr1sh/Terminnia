@@ -265,3 +265,17 @@ test('database engine menu explains the local and hosted MySQL modes', async ({ 
   await expect(page.locator('#connection')).toContainText('Local database ready');
   await expect(page.locator('#toast')).toContainText('hosted runner has not been configured');
 });
+
+
+test('keeps SQL account credentials out of browser draft and tab storage', async ({ page }) => {
+  const secret = 'x'.repeat(40);
+  const sql = "CREATE USER 'private_user'@'localhost' " + ['IDENTIFIED', 'BY', "'" + secret + "';"].join(' ');
+  await replaceSql(page, sql);
+  await expect(page.locator('#draft-state')).toContainText('Sensitive SQL kept in memory only');
+  const saved = await page.evaluate(() => JSON.stringify({
+    query: localStorage.getItem('terminnia-query-v2'),
+    tabs: localStorage.getItem('terminnia-sql-tabs-v1'),
+    history: localStorage.getItem('terminnia-history-v1')
+  }));
+  expect(saved).not.toContain(secret);
+});
