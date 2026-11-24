@@ -206,7 +206,7 @@ async function run() {
       message(completion);
       switchPanel(results.length?'results':'messages');status(activeEngine === 'mysql' ? 'Ready · MySQL 8.4 sandbox' : 'Ready · local database saved');
     }else{message(r.error?.message||'SQL execution failed.',true);$('#duration').textContent='Failed';status('SQL execution failed','error');}
-  }catch(e){if(activeEngine==='mysql' && mysqlAdapter && !(await mysqlAdapter.getConnectionInfo()).connected){$('#connection').textContent='MySQL sandbox expired · reconnect';status('MySQL session expired','error');}message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
+  }catch(e){if(activeEngine==='mysql' && mysqlAdapter && !(await mysqlAdapter.getConnectionInfo()).connected){mysqlCredentials=null;updateEngineChrome();$('#connection').textContent='MySQL sandbox expired · reconnect';status('MySQL session expired','error');}message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
   finally{$('#run').disabled=false;$('#run').textContent='▶ Run';}
 }
 function download(name,data,type) {
