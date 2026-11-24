@@ -388,7 +388,7 @@ document.querySelectorAll('[data-template]').forEach(button=>button.addEventList
   const templates={
     select:'SELECT * FROM employees LIMIT 20;',
     create:'CREATE TABLE new_table (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL\n);',
-    join:'SELECT e.name, e.department, d.budget\\nFROM employees AS e\\nJOIN departments AS d ON d.name = e.department;'
+    join:'SELECT e.name, e.department, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department;'
   };
   const source=templates[button.dataset.template];if(!source||!editor)return;
   editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:source}});
