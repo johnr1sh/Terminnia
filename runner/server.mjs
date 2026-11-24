@@ -174,8 +174,8 @@ async function executeSql(session, sql, credentials = {}) {
   const username = credentials.username || 'root';
   const password = credentials.username ? credentials.password : session.dbPassword;
   const configPath = '/tmp/.terminnia-' + randomBytes(12).toString('hex') + '.cnf';
-  const configValue = value => '"' + value.replace(/\\\\/g, '\\\\\\\\').replace(/"/g, '\\\"') + '"';
-  const clientConfig = '[client]\\nuser=' + configValue(username) + '\\npassword=' + configValue(password) + '\\nprotocol=socket\\n';
+  const configValue = value => '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  const clientConfig = '[client]\nuser=' + configValue(username) + '\npassword=' + configValue(password) + '\nprotocol=socket\n';
   let output;
   try {
     await docker(['exec', '-i', session.containerId, 'sh', '-c', 'umask 077 && cat > ' + configPath], {
@@ -267,7 +267,7 @@ const server = http.createServer(async (req, res) => {
       try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Request must contain valid JSON.' }, origin); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Request body must be a JSON object.' }, origin);
       const hasCredentials = Object.hasOwn(body, 'username') || Object.hasOwn(body, 'password');
-      if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256 || /[\\r\\n\\0]/.test(body.password))) {
+      if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256 || /[\r\n\0]/.test(body.password))) {
         return send(res, 400, { error: 'Provide a valid MySQL username and a password no longer than 256 bytes.' }, origin);
       }
       if (session.busy) return send(res, 409, { error: 'This sandbox is already executing a query. Wait for it to finish.' }, origin);
