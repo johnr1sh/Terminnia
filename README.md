@@ -5,7 +5,7 @@ A free, anonymous, browser-based SQL workspace with a focused editor and a local
 ## Current capabilities
 
 - Execute SQL in a real SQLite WebAssembly engine running in a dedicated Web Worker, so query execution does not block the editor UI.
-- CodeMirror SQL editor with syntax highlighting, line wrapping, and Ctrl/Cmd + Enter execution.
+- CodeMirror SQL editor with syntax highlighting, line wrapping, dialect-aware SQL formatting, and Ctrl/Cmd + Enter execution.
 - Sample `employees` and `departments` tables on first launch.
 - Execute multiple SQL statements and inspect separate result sets.
 - Browse tables and inspect column metadata.
@@ -14,6 +14,7 @@ A free, anonymous, browser-based SQL workspace with a focused editor and a local
 - Export query results to CSV and download SQL scripts.
 - Automatic local database snapshots in IndexedDB after query execution.
 - Responsive desktop and mobile workspace.
+- Playwright browser smoke tests and GitHub Actions quality workflow for startup, SQL execution, persistence, error recovery, and database export.
 - No login, API key, or remote database connection.
 
 ## Run locally
@@ -38,6 +39,7 @@ The active database is held by the SQL worker and its saved snapshot is stored i
 - Result rendering is capped at 5,000 rows per result set to avoid rendering extremely large tables into the page. Use SQL `LIMIT` to inspect large datasets safely.
 - Explicit write transactions are saved when committed. Finish or roll back a transaction before exporting a database backup.
 - A browser that blocks the required CDN, WebAssembly, Web Worker, or IndexedDB capabilities cannot run this version.
+- The automated browser tests run in GitHub Actions; a green workflow is required before treating a release as verified.
 - This project does not yet claim multi-tab write coordination, server-side backups, or a production MySQL compatibility layer.
 
 ## License
