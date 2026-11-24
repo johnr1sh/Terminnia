@@ -13,7 +13,9 @@ A free, anonymous, browser-based SQL workspace with a focused editor and a local
 - Import and export SQLite database files.
 - Export query results to CSV and download SQL scripts.
 - Automatic local database snapshots in IndexedDB after query execution.
-- Responsive desktop and mobile workspace.
+- Spck-inspired IDE workspace with an activity bar, project/database explorer, SQL file tabs, editor toolbar, status bar, and resizable output panel.
+- Multiple SQL documents with browser-local tab persistence.
+- Responsive desktop and mobile workspace with editor settings and Zen Mode.
 - Playwright browser smoke tests and GitHub Actions quality workflow for startup, SQL execution, persistence, error recovery, and database export.
 - No login, API key, or remote database connection.
 
