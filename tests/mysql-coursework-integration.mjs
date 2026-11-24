@@ -29,7 +29,15 @@ const joinScript = [
   'SELECT c.course_name,COUNT(e.student_id) FROM courses c LEFT JOIN enrollments e ON c.course_id=e.course_id GROUP BY c.course_id,c.course_name;',
   'SELECT c.course_name,COUNT(e.student_id) FROM courses c LEFT JOIN enrollments e ON c.course_id=e.course_id GROUP BY c.course_id,c.course_name HAVING COUNT(e.student_id)>=2;',
   'SELECT s.student_name,c.course_name FROM students s CROSS JOIN courses c;',
-  'SELECT s.student_name,s.address,c.course_name,c.instructor,e.enrollment_date FROM students s JOIN enrollments e ON s.student_id=e.student_id JOIN courses c ON e.course_id=c.course_id;'
+  'SELECT s.student_name,s.address,c.course_name,c.instructor,e.enrollment_date FROM students s JOIN enrollments e ON s.student_id=e.student_id JOIN courses c ON e.course_id=c.course_id;',
+  'SELECT s.student_name FROM students s LEFT JOIN enrollments e ON s.student_id=e.student_id WHERE e.enrollment_id IS NULL;',
+  'SELECT c.course_name FROM courses c LEFT JOIN enrollments e ON c.course_id=e.course_id WHERE e.enrollment_id IS NULL;',
+  'SELECT s.student_name,COUNT(e.enrollment_id) AS total FROM students s JOIN enrollments e ON s.student_id=e.student_id GROUP BY s.student_id,s.student_name HAVING COUNT(e.enrollment_id)=(SELECT MAX(course_count) FROM (SELECT COUNT(*) AS course_count FROM enrollments GROUP BY student_id) AS counts);',
+  "SELECT s.student_name,c.course_name FROM students s JOIN enrollments e ON s.student_id=e.student_id JOIN courses c ON e.course_id=c.course_id WHERE s.address='Hinunangan';",
+  'SELECT c.instructor,COUNT(e.enrollment_id) AS total FROM courses c LEFT JOIN enrollments e ON c.course_id=e.course_id GROUP BY c.instructor;',
+  'SELECT s.student_name FROM students s JOIN enrollments e ON s.student_id=e.student_id GROUP BY s.student_id,s.student_name HAVING COUNT(e.enrollment_id)>1;',
+  'SELECT s.student_name,e.enrollment_date FROM students s LEFT JOIN enrollments e ON s.student_id=e.student_id;'
+
 ].join('\n');
 try {
   const joins = await run(joinScript);
@@ -39,6 +47,8 @@ try {
   assert.ok(joinSets.some(set => set.rowCount === 8), 'LEFT/RIGHT JOIN must return eight rows');
   assert.ok(joinSets.some(set => set.rowCount === 30), 'CROSS JOIN must return thirty rows');
   assert.ok(joinSets.some(set => set.rowCount === 3), 'HAVING >= 2 must return three courses');
+  assert.ok(has(joins, row => row.includes('James')), 'anti-join challenge must find James');
+  assert.ok(has(joins, row => row.includes('Cybersecurity')), 'unmatched-course challenge must find Cybersecurity');
   assert.ok(has(joins, row => row.includes('James')), 'LEFT JOIN must retain a student without enrollment');
   assert.ok(has(joins, row => row.includes('Cybersecurity')), 'RIGHT JOIN must retain a course without enrollment');
 
@@ -51,7 +61,9 @@ try {
     'SELECT program,COUNT(*) FROM students GROUP BY program HAVING COUNT(*)>3;',
     'SELECT program,AVG(tuition_fee) FROM students GROUP BY program HAVING AVG(tuition_fee)>23000;',
     'SELECT program,SUM(amount_paid) FROM students GROUP BY program HAVING SUM(amount_paid)>50000;',
-    'SELECT year_level,COUNT(*) FROM students GROUP BY year_level HAVING COUNT(*)>=2;'
+    'SELECT year_level,COUNT(*) FROM students GROUP BY year_level HAVING COUNT(*)>=2;',
+    'SELECT program,AVG(amount_paid) FROM students GROUP BY program HAVING AVG(amount_paid)>=18000;',
+    'SELECT program,COUNT(*) AS total_students,SUM(tuition_fee) AS total_tuition,SUM(amount_paid) AS total_paid,AVG(amount_paid) AS average_paid FROM students GROUP BY program HAVING COUNT(*)>=3 AND SUM(amount_paid)>50000;'
   ].join('\n');
   const setup = await run(advancedSetup);
   assert.equal(setup.status, 200, JSON.stringify(setup.body));
@@ -78,11 +90,14 @@ try {
     'SELECT student_name,CalculateBalance(student_id) FROM students WHERE CalculateBalance(student_id)>5000;',
     'SELECT student_name,CalculateBalance(student_id) FROM students WHERE student_id=3;',
     "SELECT GetPaymentStatus(2),GetPaymentStatus(3),GetPaymentStatus(999);",
-    'SELECT student_name,GetTuitionDiscount(student_id) FROM students;'
+    'SELECT student_name,GetTuitionDiscount(student_id) FROM students;',
+    "INSERT INTO students(student_name,program,year_level,tuition_fee,amount_paid) VALUES('No Payment','BSIT',1,25000,0);",
+    'SELECT GetTuitionDiscount(LAST_INSERT_ID());'
   ].join('\n');
   const routineRun = await run(routines);
   assert.equal(routineRun.status, 200, JSON.stringify(routineRun.body));
   assert.ok(has(routineRun, row => row.includes('FULLY PAID') && row.includes('WITH BALANCE') && row.includes('INVALID STUDENT')), 'stored function status values must work');
+  assert.ok(has(routineRun, row => row.includes('0.00')), 'zero-payment student must receive zero discount');
   assert.ok((routineRun.body.results || []).some(set => set.rowCount === 10), 'GetAllStudents must return ten rows');
   assert.ok((routineRun.body.results || []).some(set => set.rowCount === 6), 'GetStudentsWithBalance(5000) must return six rows');
 
@@ -92,6 +107,8 @@ try {
   const negativePayment = await run('CALL UpdateStudentPayment(1,-10);');
   assert.equal(negativePayment.status, 422, 'negative payment must be rejected');
   assert.match(negativePayment.body.detail || '', /greater than zero/i);
+  const zeroPayment = await run('CALL UpdateStudentPayment(1,0);');
+  assert.equal(zeroPayment.status, 422, 'zero payment must be rejected');
   const nullPayment = await run('CALL UpdateStudentPayment(1,NULL);');
   assert.equal(nullPayment.status, 422, 'NULL payment must be rejected');
   const excessPayment = await run('CALL UpdateStudentPayment(1,999999);');
