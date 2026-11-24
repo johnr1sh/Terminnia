@@ -120,13 +120,22 @@ async function createContainer(session) {
   let ready = false, lastError = null;
   while (Date.now() < deadline) {
     try {
-      await docker(['exec', id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
-      ready = true;
-      break;
+      // mysqladmin ping also succeeds against the temporary initialization
+      // server started by the official image entrypoint. Wait for grants to
+      // be enabled so we only accept the final, authenticated server.
+      const grantsMode = await docker([
+        'exec', id, 'mysql', '--protocol=socket', '-uroot',
+        '--batch', '--skip-column-names', '-e', 'SELECT @@GLOBAL.skip_grant_tables'
+      ], { timeout: 4_000, maxOutput: 8_000 });
+      if (grantsMode.trim() === '0') {
+        ready = true;
+        break;
+      }
+      lastError = new Error('MySQL is still running its temporary initialization server.');
     } catch (error) {
       lastError = error;
-      await new Promise(resolve => setTimeout(resolve, 900));
     }
+    await new Promise(resolve => setTimeout(resolve, 900));
   }
   if (!ready) {
     const state = await docker(['inspect', '--format', '{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}|{{.State.FinishedAt}}', id], { timeout: 5_000, maxOutput: 4_000 }).catch(error => 'Unable to inspect MySQL container state: ' + error.message);
