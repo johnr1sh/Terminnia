@@ -49,3 +49,18 @@ test('exports a valid local database backup', async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('terminnia.sqlite');
 });
+
+
+test('creates and switches between persistent SQL editor tabs', async ({ page }) => {
+  await replaceSql(page, 'SELECT 101 AS first_tab;');
+  await page.locator('#add-tab').click();
+  await replaceSql(page, 'SELECT 202 AS second_tab;');
+  await expect(page.locator('.editor-tab')).toHaveCount(2);
+  await page.locator('.editor-tab').first().click();
+  await expect(page.locator('.cm-content')).toContainText('first_tab');
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
+  await expect(page.locator('.editor-tab')).toHaveCount(2);
+  await page.locator('.editor-tab').last().click();
+  await expect(page.locator('.cm-content')).toContainText('second_tab');
+});
