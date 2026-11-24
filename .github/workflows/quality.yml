@@ -25,6 +25,8 @@ jobs:
         run: |
           node --input-type=module --check < app.js
           node --check sql-worker.js
+      - name: Run database adapter unit tests
+        run: node --test tests/database-adapter.test.mjs
       - name: Install browser test runner
         run: |
           npm install --no-save @playwright/test
