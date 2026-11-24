@@ -48,11 +48,16 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
     };
   }
 
-  async execute(sql) {
+  async execute(sql, options = {}) {
     this.#requireConnection();
     if (typeof sql !== 'string' || !sql.trim()) throw new TypeError('SQL must be a non-empty string.');
+    const payload = { sql };
+    if (options.username !== undefined || options.password !== undefined) {
+      payload.username = options.username;
+      payload.password = options.password;
+    }
     return this.#request('/api/sandboxes/' + this.#session.id + '/execute', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sql })
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
     });
   }
 
