@@ -114,19 +114,30 @@ async function createContainer(session) {
   const id = await docker(args, { timeout: 30_000, maxOutput: 32_000 });
   session.containerId = id;
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+  let ready = false, lastError = null;
   while (Date.now() < deadline) {
     try {
       await docker(['exec', id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
-      await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
-        input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\nFLUSH PRIVILEGES;\n",
-        timeout: 8_000, maxOutput: 8_000
-      });
-      return;
-    } catch {
+      ready = true;
+      break;
+    } catch (error) {
+      lastError = error;
       await new Promise(resolve => setTimeout(resolve, 900));
     }
   }
-  throw new Error('The isolated MySQL server did not become ready in time.');
+  if (!ready) {
+    const logs = await docker(['logs', id], { timeout: 5_000, maxOutput: 24_000 }).catch(error => 'Unable to read MySQL container logs: ' + error.message);
+    throw new Error('The isolated MySQL server did not become ready in time. ' + (lastError?.message || '') + '\\n' + logs);
+  }
+  try {
+    await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
+      input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\\nFLUSH PRIVILEGES;\\n",
+      timeout: 8_000, maxOutput: 8_000
+    });
+  } catch (error) {
+    const logs = await docker(['logs', id], { timeout: 5_000, maxOutput: 24_000 }).catch(() => '');
+    throw new Error('Could not initialize the isolated MySQL root account: ' + error.message + '\\n' + logs);
+  }
 }
 function decodeCell(value) {
   if (value === '\\N') return null;
