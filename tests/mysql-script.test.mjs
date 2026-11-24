@@ -31,6 +31,7 @@ test('honors DELIMITER around stored procedures and functions', () => {
   assert.match(statements[1], /INSERT INTO t VALUES \(1\);\s*INSERT INTO t VALUES \(2\);/);
   assert.match(statements[2], /RETURN 1;/);
   assert.equal(statements[3], 'CALL p()');
+  assert.equal(statements[4], 'SELECT f()');
 });
 
 test('does not split delimiters inside quoted values, identifiers, or comments', () => {
