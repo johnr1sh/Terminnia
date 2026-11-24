@@ -12,6 +12,11 @@ test('decodes MySQL batch escaped values', () => {
   assert.equal(result[0].values[0][0], 'line\nnext\tcolumn');
 });
 
+test('preserves literal backslash sequences while decoding MySQL output', () => {
+  const result = parseMysqlOutput('value\\nliteral\\\\tsequence');
+  assert.equal(result[0].values[0][0], 'literal\\tsequence');
+});
+
 test('decodes SQL NULL values', () => {
   const result = parseMysqlOutput('value\n\\N');
   assert.equal(result[0].values[0][0], null);
