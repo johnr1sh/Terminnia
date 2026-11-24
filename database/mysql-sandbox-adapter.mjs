@@ -103,7 +103,9 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
 
   async getCapabilities() {
     return {
-      transactions: true, multipleStatements: true, schemas: true,
+      transactions: true, transactionScope: 'single-execution-request',
+      connectionScopedStateAcrossRequests: false,
+      multipleStatements: true, schemas: true,
       views: true, indexes: true, foreignKeys: true,
       localPersistence: false, readOnlyByDefault: false,
       storedProcedures: true, storedFunctions: true, accountPrivileges: true
