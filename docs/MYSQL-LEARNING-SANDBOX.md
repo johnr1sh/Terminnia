@@ -123,8 +123,9 @@ The supplied activity sheets are the acceptance-test source. Do not substitute S
 - Local SQLite engine: implemented.
 - Local SQLite adapter: implemented.
 - MySQL execution in Terminnia: not implemented.
-- Initial Docker-based MySQL 8.4 runner service: implemented in `runner/server.mjs` with per-session containers, bearer capabilities, in-memory TTL tracking, bounded execution, reset/delete, and container cleanup.
-- Runner unit tests: added to the quality workflow; results must be checked for the current commit.
+- Initial Docker-based MySQL 8.4 runner service: implemented in `runner/server.mjs` with per-session containers, bearer capabilities, selected-database continuity, in-memory TTL tracking, bounded execution, reset/delete, and container cleanup.
+- Remote MySQL adapter contract: implemented in `database/mysql-sandbox-adapter.mjs`; it keeps bearer capabilities in memory and does not persist them.
+- Runner unit tests and Docker-backed integration tests: added to the quality workflow. The integration test exercises real MySQL statements, stored procedures, account/privilege statements, session isolation, reset, and deletion; results must be checked for the current commit.
 - MySQL runner deployment: not configured; no Docker-capable host or production endpoint is connected.
 - Frontend MySQL adapter/mode: not implemented; the editor still runs Local SQLite only.
 - End-to-end verification of stored routines, user privileges, output parsing, and hostile-query behavior through the runner: not complete.
