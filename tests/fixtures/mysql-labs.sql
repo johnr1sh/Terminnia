@@ -239,6 +239,6 @@ CREATE USER 'report_user'@'localhost' IDENTIFIED BY 'report_ci_pw';
 CREATE USER 'admin_assistant'@'localhost' IDENTIFIED BY 'assistant_ci_pw';
 
 GRANT SELECT ON terminnia_mysql_advanced_ci.students TO 'student_user'@'localhost';
-GRANT SELECT, INSERT, UPDATE, DELETE ON terminnia_mysql_ci.students TO 'teacher_user'@'localhost';
-GRANT SELECT ON terminnia_mysql_ci.students TO 'report_user'@'localhost';
-GRANT SELECT, INSERT, UPDATE ON terminnia_mysql_ci.students TO 'admin_assistant'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON terminnia_mysql_advanced_ci.students TO 'teacher_user'@'localhost';
+GRANT SELECT ON terminnia_mysql_advanced_ci.students TO 'report_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE ON terminnia_mysql_advanced_ci.students TO 'admin_assistant'@'localhost';
