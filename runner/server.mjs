@@ -126,8 +126,9 @@ async function createContainer(session) {
     }
   }
   if (!ready) {
+    const state = await docker(['inspect', '--format', '{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}|{{.State.FinishedAt}}', id], { timeout: 5_000, maxOutput: 4_000 }).catch(error => 'Unable to inspect MySQL container state: ' + error.message);
     const logs = await docker(['logs', id], { timeout: 5_000, maxOutput: 24_000 }).catch(error => 'Unable to read MySQL container logs: ' + error.message);
-    throw new Error('The isolated MySQL server did not become ready in time. ' + (lastError?.message || '') + '\n' + logs);
+    throw new Error('The isolated MySQL server did not become ready in time. ' + (lastError?.message || '') + '\nState: ' + state + '\n' + logs);
   }
   try {
     await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
