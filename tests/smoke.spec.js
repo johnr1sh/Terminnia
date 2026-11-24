@@ -183,3 +183,39 @@ test('recovers the local database after a SQL worker crash', async ({ page }) =>
   await page.getByRole('button', { name: /Run/ }).click();
   await expect(page.locator('#result-content')).toContainText('survived');
 });
+
+
+test('mobile navigation drawer opens and dismisses without covering the editor', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('[data-activity="explorer"]').click();
+  await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  await expect(page.locator('#drawer-backdrop')).toBeVisible();
+  await page.locator('#drawer-backdrop').click({ position: { x: 320, y: 500 } });
+  await expect(page.locator('#sidebar')).not.toHaveClass(/open/);
+  await expect(page.locator('#drawer-backdrop')).toBeHidden();
+  await expect(page.locator('#editor')).toBeVisible();
+});
+
+test('mobile editor can execute SQL and show query results', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await replaceSql(page, 'SELECT 42 AS answer;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('answer');
+  await expect(page.locator('#result-content')).toContainText('42');
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    page: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
+});
+
+test('editor preferences survive a reload', async ({ page }) => {
+  await page.locator('#settings-toggle').click();
+  await page.locator('#font-size').selectOption('16');
+  await page.locator('#line-wrap').uncheck();
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
+  await expect(page.locator('#font-size')).toHaveValue('16');
+  await expect(page.locator('#line-wrap')).not.toBeChecked();
+  await expect(page.locator('#editor')).toHaveClass(/no-wrap/);
+});
