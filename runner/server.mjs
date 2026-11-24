@@ -259,10 +259,6 @@ sweeper.unref();
 
 async function reapOrphanedContainers() {
   const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
-  if (ids) await docker(['rm', '-f', ...ids.split(/\\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
-}
-async function reapOrphanedContainers() {
-  const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
   if (ids) await docker(['rm', '-f', ...ids.split(/\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
 }
 async function shutdown() {
