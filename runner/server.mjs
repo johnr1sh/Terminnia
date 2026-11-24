@@ -2,6 +2,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { splitMysqlScript } from '../database/mysql-script.mjs';
+import { parseMysqlXml } from '../database/mysql-output.mjs';
 
 const PORT = Number(process.env.PORT || 8787);
 const MYSQL_IMAGE = process.env.MYSQL_IMAGE || 'mysql:8.4';
@@ -159,40 +160,6 @@ async function createContainer(session) {
     throw new Error('Could not initialize the isolated MySQL root account: ' + error.message + '\\n' + logs);
   }
 }
-function decodeCell(value) {
-  if (value === '\\N') return null;
-  let decoded = '';
-  for (let i = 0; i < value.length; i++) {
-    if (value[i] !== '\\' || i + 1 >= value.length) {
-      decoded += value[i];
-      continue;
-    }
-    const next = value[++i];
-    const escapes = { '0': '\0', b: '\b', t: '\t', n: '\n', r: '\r', Z: '\x1a', '\\': '\\' };
-    decoded += Object.hasOwn(escapes, next) ? escapes[next] : next;
-  }
-  return decoded;
-}
-function parseMysqlOutput(output) {
-  if (!output.trim()) return [];
-  const blocks = output.trim().split(/\n\s*\n/);
-  const results = [];
-  let totalRows = 0;
-  for (const block of blocks) {
-    const lines = block.split('\n').filter(Boolean);
-    if (!lines.length) continue;
-    const columns = lines[0].split('\t').map(decodeCell);
-    const values = [];
-    for (const line of lines.slice(1)) {
-      if (totalRows >= MAX_ROWS) break;
-      values.push(line.split('\t').map(decodeCell));
-      totalRows++;
-    }
-    if (columns.length) results.push({ columns, values, rowCount: values.length, truncated: totalRows >= MAX_ROWS });
-    if (totalRows >= MAX_ROWS) break;
-  }
-  return results;
-}
 async function executeSql(session, sql, credentials = {}) {
   if (typeof sql !== 'string' || !sql.trim()) throw Object.assign(new Error('SQL must be a non-empty string.'), { status: 400 });
   if (Buffer.byteLength(sql, 'utf8') > MAX_SQL_BYTES) throw Object.assign(new Error('SQL script exceeds the 64 KB limit.'), { status: 413 });
@@ -217,7 +184,7 @@ async function executeSql(session, sql, credentials = {}) {
     output = await docker([
       'exec', '-i', session.containerId, 'mysql', '--defaults-extra-file=' + configPath, '--delimiter=' + delimiter,
       ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
-      '--default-character-set=utf8mb4', '--skip-line-numbers'
+      '--default-character-set=utf8mb4', '--skip-line-numbers', '--xml'
     ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
   } catch (error) {
     if (error.code === 'DOCKER_FAILED') {
@@ -237,7 +204,7 @@ async function executeSql(session, sql, credentials = {}) {
     if (use) session.currentDatabase = (use[1] || use[2]).replace(/``/g, '`');
     if (drop && (drop[1] || drop[2]) === session.currentDatabase) session.currentDatabase = null;
   }
-  return { results: parseMysqlOutput(output), statementCount: statements.length };
+  return { results: parseMysqlXml(output, MAX_ROWS), statementCount: statements.length };
 }
 function findSession(req, id) {
   const header = String(req.headers.authorization || '');
