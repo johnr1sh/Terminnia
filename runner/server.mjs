@@ -107,7 +107,7 @@ async function createContainer(session) {
     '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER',
     '--cap-add', 'SETGID', '--cap-add', 'SETUID', '--cap-add', 'NET_BIND_SERVICE',
     '--security-opt', 'no-new-privileges',
-    '--env', 'MYSQL_ROOT_PASSWORD=' + session.dbPassword,
+    '--env', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes',
     '--env', 'MYSQL_ROOT_HOST=localhost',
     MYSQL_IMAGE
   ];
@@ -116,7 +116,11 @@ async function createContainer(session) {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      await docker(['exec', '-e', 'MYSQL_PWD=' + session.dbPassword, id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
+      await docker(['exec', id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
+      await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
+        input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\\nFLUSH PRIVILEGES;\\n",
+        timeout: 8_000, maxOutput: 8_000
+      });
       return;
     } catch {
       await new Promise(resolve => setTimeout(resolve, 900));
@@ -169,11 +173,17 @@ async function executeSql(session, sql, credentials = {}) {
   const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + delimiter).join('\n') + '\nDELIMITER ;\n';
   const username = credentials.username || 'root';
   const password = credentials.username ? credentials.password : session.dbPassword;
+  const configPath = '/tmp/.terminnia-' + randomBytes(12).toString('hex') + '.cnf';
+  const configValue = value => '"' + value.replace(/\\\\/g, '\\\\\\\\').replace(/"/g, '\\\"') + '"';
+  const clientConfig = '[client]\\nuser=' + configValue(username) + '\\npassword=' + configValue(password) + '\\nprotocol=socket\\n';
   let output;
   try {
+    await docker(['exec', '-i', session.containerId, 'sh', '-c', 'umask 077 && cat > ' + configPath], {
+      input: clientConfig, timeout: 4_000, maxOutput: 8_000
+    });
     output = await docker([
-      'exec', '-i', '-e', 'MYSQL_PWD=' + password, session.containerId,
-      'mysql', '--protocol=socket', '--user=' + username, ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
+      'exec', '-i', session.containerId, 'mysql', '--defaults-extra-file=' + configPath,
+      ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
       '--default-character-set=utf8mb4', '--skip-line-numbers'
     ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
   } catch (error) {
@@ -181,6 +191,8 @@ async function executeSql(session, sql, credentials = {}) {
       throw Object.assign(new Error(error.message.slice(0, 4000) || 'MySQL rejected the SQL script.'), { code: 'MYSQL_QUERY_FAILED', status: 422 });
     }
     throw error;
+  } finally {
+    await docker(['exec', session.containerId, 'rm', '-f', configPath], { timeout: 3_000, maxOutput: 4_000 }).catch(() => {});
   }
   session.lastUsedAt = Date.now();
   for (const statement of statements) {
@@ -255,7 +267,7 @@ const server = http.createServer(async (req, res) => {
       try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Request must contain valid JSON.' }, origin); }
       if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Request body must be a JSON object.' }, origin);
       const hasCredentials = Object.hasOwn(body, 'username') || Object.hasOwn(body, 'password');
-      if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256)) {
+      if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256 || /[\\r\\n\\0]/.test(body.password))) {
         return send(res, 400, { error: 'Provide a valid MySQL username and a password no longer than 256 bytes.' }, origin);
       }
       if (session.busy) return send(res, 409, { error: 'This sandbox is already executing a query. Wait for it to finish.' }, origin);
