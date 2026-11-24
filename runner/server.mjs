@@ -83,7 +83,7 @@ function docker(args, options = {}) {
     child.on('error', error => finish(error));
     child.on('close', code => code === 0
       ? finish(null, stdout.toString('utf8').trim())
-      : finish(Object.assign(new Error(stderr.toString('utf8').trim() || 'Docker command failed.'), { code: 'DOCKER_FAILED' })));
+      : finish(Object.assign(new Error([stderr.toString('utf8').trim(), stdout.toString('utf8').trim()].filter(Boolean).join('\\n').slice(0, max) || 'Docker command failed.'), { code: 'DOCKER_FAILED' })));
     if (options.input) child.stdin.end(options.input); else child.stdin.end();
   });
 }
