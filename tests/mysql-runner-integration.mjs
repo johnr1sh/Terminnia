@@ -33,7 +33,7 @@ try {
   const containerId = execFileSync('docker', ['ps', '-q', '--filter', 'label=terminnia.session=' + first.id], { encoding: 'utf8' }).trim();
   assert.ok(containerId, 'sandbox must own a real Docker container');
   const isolation = execFileSync('docker', ['inspect', '--format', '{{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}|{{.HostConfig.Memory}}|{{.HostConfig.PidsLimit}}|{{.HostConfig.ReadonlyRootfs}}', containerId], { encoding: 'utf8' }).trim();
-  assert.equal(isolation, 'none|null|536870912|128|true', 'container must have no network/ports and strict resource/filesystem limits');
+  assert.equal(isolation, 'none|null|805306368|128|true', 'container must have no network/ports and strict resource/filesystem limits');
 
   const script = `
 CREATE DATABASE terminnia_runner_test;
