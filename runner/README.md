@@ -16,13 +16,13 @@ The runner listens on port 8787. The Docker socket/CLI is a host-root-equivalent
 ## API
 
 - `POST /api/sandboxes` creates a sandbox and returns its ID and one-time bearer capability.
-- `POST /api/sandboxes/:id/execute` accepts JSON `{"sql":"..."}`.
+- `POST /api/sandboxes/:id/execute` accepts JSON `{"sql":"..."}`. To test account privileges, it also accepts optional `username` and `password` fields; credentials are passed only to the isolated MySQL client process and are not stored in the session.
 - `GET /api/sandboxes/:id/schema` lists tables and views.
 - `POST /api/sandboxes/:id/reset` replaces the sandbox database.
 - `DELETE /api/sandboxes/:id` destroys it.
 - `GET /health` reports process health.
 
-Send the returned capability as `Authorization: Bearer ...`. Keep it in browser memory only. Never place it in a URL or logs. Configure exact comma-separated browser origins with `RUNNER_ALLOWED_ORIGINS`.
+Send the returned capability as `Authorization: Bearer ...`. Keep it in browser memory only. Never place it in a URL or logs. Send requests over HTTPS in any hosted deployment; student account passwords must not be logged or persisted. Configure exact comma-separated browser origins with `RUNNER_ALLOWED_ORIGINS`.
 
 ## Isolation and limits
 
