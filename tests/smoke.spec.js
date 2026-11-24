@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  page.on('console', message => {
+    if (message.type() === 'error') console.log('[browser console]', message.text());
+  });
+  page.on('pageerror', error => console.log('[browser pageerror]', error.stack || error.message));
+  page.on('requestfailed', request => console.log('[browser requestfailed]', request.url(), request.failure()?.errorText || 'unknown'));
   await page.goto('http://127.0.0.1:4173/');
   await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
 });
