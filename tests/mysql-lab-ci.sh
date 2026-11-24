@@ -5,7 +5,7 @@ MYSQL_CONTAINER_ID="${MYSQL_CONTAINER_ID:?Missing MySQL service container ID}"
 MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:?Missing root password}"
 
 mysql_root() {
-  docker exec "$MYSQL_CONTAINER_ID" mysql --protocol=socket -uroot "-p$MYSQL_ROOT_PASSWORD" "$@"
+  docker exec -i "$MYSQL_CONTAINER_ID" mysql --protocol=socket -uroot "-p$MYSQL_ROOT_PASSWORD" "$@"
 }
 mysql_user() {
   local user="$1" password="$2"
