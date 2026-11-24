@@ -12,6 +12,11 @@ test('decodes MySQL batch escaped values', () => {
   assert.equal(result[0].values[0][0], 'line\nnext\tcolumn');
 });
 
+test('decodes SQL NULL values', () => {
+  const result = parseMysqlOutput('value\\n\\\\N');
+  assert.equal(result[0].values[0][0], null);
+});
+
 test('returns no result sets for statements without rows', () => {
   assert.deepEqual(parseMysqlOutput(''), []);
   assert.deepEqual(parseMysqlOutput('  \n'), []);
