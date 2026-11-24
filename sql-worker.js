@@ -51,7 +51,14 @@ self.onmessage = async (event) => {
         });
       }
       db = buffer ? new SQL.Database(new Uint8Array(buffer)) : new SQL.Database();
-      reply(id, { ok: true, version: VERSION });
+      if (!buffer) {
+        db.run("CREATE TABLE departments(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, budget REAL); CREATE TABLE employees(id INTEGER PRIMARY KEY, name TEXT NOT NULL, department TEXT NOT NULL, salary REAL, hired_on TEXT DEFAULT CURRENT_DATE); INSERT INTO departments(name,budget) VALUES('Engineering',180000),('Design',90000),('Operations',120000); INSERT INTO employees(name,department,salary) VALUES('Alex Morgan','Engineering',85000),('Maria Santos','Design',72000),('Jordan Lee','Engineering',91000),('Sam Rivera','Operations',65000),('Taylor Kim','Design',78000);");
+      }
+      const initialSnapshot = snapshot();
+      const response = { ok: true, version: VERSION };
+      const transfer = [];
+      if (initialSnapshot instanceof ArrayBuffer) { response.snapshot = initialSnapshot; transfer.push(initialSnapshot); }
+      reply(id, response, transfer);
       return;
     }
 
