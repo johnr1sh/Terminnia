@@ -16,7 +16,7 @@
     "sql.js": "1.15.2"
   },
   "devDependencies": {
-    "@playwright/test": "1.52.0",
+    "@playwright/test": "1.65.1",
     "vite": "6.0.7"
   }
 }
