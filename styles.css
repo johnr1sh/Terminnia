@@ -246,3 +246,19 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @media(max-width:620px){.workspace-menu{left:0;width:min(264px,calc(100vw - 22px))}.brand-area{gap:7px}.brand-divider{display:none}.project-switcher{gap:5px;padding:6px 5px}.workspace-type{font-size:8px}}
 
 @media(max-width:390px){.editor-footer{gap:8px;padding:0 7px}.editor-footer .draft-state{display:none}.editor-footer span:nth-last-child(-n+2){display:none}}
+
+
+/* MySQL execution identity control */
+.editor-controls{position:relative}
+.run-as-toggle{white-space:nowrap}
+.run-as-popover{position:absolute;z-index:40;right:0;top:calc(100% + 7px);width:248px;padding:12px;background:#202638;border:1px solid #4a5571;border-radius:8px;box-shadow:0 14px 34px #080c18b8;color:#e5eaf4}
+.run-as-popover[hidden]{display:none}
+.run-as-popover>strong{display:block;margin-bottom:10px;font-size:11px}
+.run-as-popover>label{display:block;margin:8px 0 4px;color:#aeb8cc;font-size:9px}
+.run-as-popover>input{box-sizing:border-box;width:100%;height:31px;padding:0 8px;border:1px solid #46516a;border-radius:4px;background:#171d2c;color:#eef2fa;font:11px 'JetBrains Mono',monospace}
+.run-as-popover>input:focus{outline:1px solid #91a9ff;border-color:#91a9ff}
+.run-as-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:11px}
+.run-as-actions button{padding:6px 9px;border:1px solid #48536c;border-radius:4px;background:#2b3349;color:#dbe3f4;font-size:9px}
+#run-as-apply{border-color:#829cf0;background:#829cf0;color:#172039;font-weight:700}
+#run-as-note{margin:9px 0 0;color:#96a2b9;font-size:9px;line-height:1.5}
+@media(max-width:390px){.run-as-popover{right:-48px;width:min(248px,calc(100vw - 54px))}.run-as-toggle{padding:5px 5px;font-size:8px}}
