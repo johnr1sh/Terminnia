@@ -53,7 +53,6 @@ export function splitMysqlScript(source) {
     if (blockComment) {
       if (char === '*' && next === '/') {
         if (executableComment) buffer += '*/';
-        else buffer += ' ';
         blockComment = false;
         executableComment = false;
         i += 2;
