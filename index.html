@@ -52,7 +52,7 @@
   <button class="drawer-backdrop" id="drawer-backdrop" type="button" aria-label="Close navigation panel" hidden></button>
 
   <main class="editor-workspace">
-    <div class="tab-strip">
+    <div class="tab-strip" role="tablist" aria-label="Open SQL documents">
       
       <button class="new-tab" id="add-tab" title="New SQL tab">＋</button>
       <div class="tab-strip-spacer"></div>
@@ -75,11 +75,11 @@
         <div class="output-actions"><span id="duration" class="duration">Ready</span><button class="export-csv" id="csv" disabled>⇩ Export CSV</button><button class="panel-icon" id="panel-toggle" title="Hide output panel">⌄</button></div>
       </div>
       <div class="result-tabs" id="result-tabs" hidden></div>
-      <div class="output-content" data-panel="results" id="result-content"><div class="welcome-state"><div class="welcome-icon">⌘</div><strong>Ready to execute</strong><span>Write a SQL query and press Run Query.</span><button id="example" class="text-button">Load example query</button></div></div>
+      <div class="output-content" data-panel="results" id="result-content" aria-live="polite"><div class="welcome-state"><div class="welcome-icon">⌘</div><strong>Ready to execute</strong><span>Write a SQL query and press Run Query.</span><button id="example" class="text-button">Load example query</button></div></div>
       <div class="output-content" data-panel="messages" hidden><pre class="message-content" id="message-content">Execution messages appear here.</pre></div>
       <div class="output-content" data-panel="schema" hidden><div id="schema-content" class="schema-content muted">Select a table to inspect its structure.</div></div>
     </section>
-    <footer class="statusbar"><span id="status" data-state="busy"><span class="status-led"></span>Initializing database…</span><span class="status-right"><span id="status-selection">No selection</span><span>SQLite</span><span>Local</span></span></footer>
+    <footer class="statusbar"><span id="status" role="status" aria-live="polite" data-state="busy"><span class="status-led"></span>Initializing database…</span><span class="status-right"><span id="status-selection">No selection</span><span>SQLite</span><span>Local</span></span></footer>
     <div id="startup-error" class="startup-error" hidden></div>
   </main>
 </div>
