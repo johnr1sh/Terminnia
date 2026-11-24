@@ -234,7 +234,8 @@ const server = http.createServer(async (req, res) => {
     if (route.action === 'reset' && req.method === 'POST') {
       await removeContainer(session.containerId);
       session.containerId = null;
-      await createContainer(session);
+      try { await createContainer(session); }
+      catch (error) { await destroySession(session); throw error; }
       session.lastUsedAt = Date.now();
       return send(res, 200, { ok: true, engine: 'MySQL 8.4' }, origin);
     }
@@ -244,6 +245,9 @@ const server = http.createServer(async (req, res) => {
     }
     return send(res, 405, { error: 'Method not allowed.' }, origin);
   } catch (error) {
+    // Killing the mysql client alone does not guarantee the server-side query
+    // stopped. Destroy the disposable container on timeout/output overflow.
+    if (error.code === 'ETIMEDOUT' || error.code === 'OUTPUT_LIMIT') await destroySession(session);
     const status = error.status || (error.code === 'ETIMEDOUT' ? 408 : 422);
     return send(res, status, { error: status === 408 ? 'SQL execution timed out.' : 'SQL execution failed.', detail: process.env.NODE_ENV === 'development' ? error.message : undefined }, origin);
   }
