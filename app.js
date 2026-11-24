@@ -265,6 +265,7 @@ async function initialize() {
         }).map(tab=>({id:Number(tab.id),name:tab.name.slice(0,120)||'query.sql',content:hasSensitiveCredentials(tab.content)?'':tab.content}));
       }
     } catch { tabs=[]; }
+    try { const previousQuery=localStorage.getItem(QUERY); if(previousQuery&&hasSensitiveCredentials(previousQuery)) localStorage.removeItem(QUERY); } catch {}
     if(!tabs.length){const savedQuery=localStorage.getItem(QUERY)||SAMPLE;const safeQuery=hasSensitiveCredentials(savedQuery)?'':savedQuery;if(safeQuery!==savedQuery)try{localStorage.removeItem(QUERY);}catch{}tabs=[{id:nextTabId++,name:'query.sql',content:safeQuery}];}
     nextTabId=Math.max(1,...tabs.map(t=>t.id))+1;
     activeTabId=tabs[0].id;
