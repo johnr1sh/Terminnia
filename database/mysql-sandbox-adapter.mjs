@@ -138,7 +138,8 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
         this.#session = null;
         this.#connected = false;
       }
-      throw new Error(body.error || 'MySQL sandbox request failed (' + response.status + ').');
+      const message = body.error || 'MySQL sandbox request failed (' + response.status + ').';
+      throw new Error(body.detail ? message + '\\n' + body.detail : message);
     }
     return body;
   }
