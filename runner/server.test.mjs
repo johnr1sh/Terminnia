@@ -13,7 +13,7 @@ test('decodes MySQL batch escaped values', () => {
 });
 
 test('decodes SQL NULL values', () => {
-  const result = parseMysqlOutput('value\\n\\\\N');
+  const result = parseMysqlOutput('value\n\\N');
   assert.equal(result[0].values[0][0], null);
 });
 
