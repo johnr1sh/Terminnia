@@ -15,6 +15,11 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
     if (typeof baseUrl !== 'string' || !/^https?:\/\//i.test(baseUrl)) {
       throw new TypeError('MysqlSandboxAdapter requires an absolute HTTP(S) runner URL.');
     }
+    const parsedUrl = new URL(baseUrl);
+    const localHost = ['localhost', '127.0.0.1', '[::1]'].includes(parsedUrl.hostname);
+    if (parsedUrl.protocol !== 'https:' && !(parsedUrl.protocol === 'http:' && localHost)) {
+      throw new TypeError('Remote MySQL runner connections must use HTTPS. HTTP is allowed only for localhost development.');
+    }
     if (typeof fetchImpl !== 'function') throw new TypeError('A Fetch-compatible implementation is required.');
     this.#baseUrl = baseUrl.replace(/\/+$/, '');
     this.#fetch = fetchImpl;
