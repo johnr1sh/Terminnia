@@ -26,7 +26,7 @@ Send the returned capability as `Authorization: Bearer ...`. Keep it in browser 
 
 ## Isolation and limits
 
-Every SQL container uses Docker's `none` network, no published ports, a read-only root filesystem, bounded tmpfs storage, 512 MB memory, one CPU, a 128-process limit, dropped Linux capabilities, and no-new-privileges. Each container is removed on reset, explicit deletion, idle expiry (20 minutes), or hard expiry (2 hours). SQL input is limited to 64 KB, each execution to 8 seconds, output to 1 MB, and returned rows to 5,000. The runner caps active sessions at eight and applies per-process creation/query rate limits.
+Every SQL container uses Docker's `none` network, no published ports, a read-only root filesystem, bounded tmpfs storage, 512 MB memory, one CPU, a 128-process limit, bounded file descriptors and container logs, dropped Linux capabilities, and no-new-privileges. Each container is removed on reset, explicit deletion, idle expiry (20 minutes), or hard expiry (2 hours). SQL input is limited to 64 KB, each execution to 8 seconds, output to 1 MB, and returned rows to 5,000. The runner caps active sessions at eight and applies per-process creation/query rate limits. Each API execution opens a fresh MySQL client connection; the selected database is retained between requests, but connection-scoped state such as user variables, temporary tables, prepared statements, and open transactions is not. Keep those operations in the same submitted SQL script.
 
 ## Important deployment blockers
 
@@ -34,7 +34,7 @@ This is an initial runner implementation, not yet a production-safe public servi
 
 - It requires a dedicated Docker-capable Linux host; Vercel cannot run it.
 - The runner must be deployed as a single replica. Session ownership and rate counters are currently process-local. Startup cleanup removes all containers carrying this runner's label, so multiple replicas sharing one Docker daemon are not supported.
-- Put a trusted reverse proxy/WAF with authoritative client-IP handling, request rate limits, TLS, and request-size limits in front of it. The in-process rate limiter is only a secondary guard and is not distributed.
+- Put a trusted reverse proxy/WAF with authoritative client-IP handling, request rate limits, TLS, and request-size limits in front of it. Set `TRUST_PROXY=1` only when that proxy overwrites `X-Forwarded-For`; otherwise leave it disabled. The in-process rate limiter is only a secondary guard and is not distributed.
 - Pin `MYSQL_IMAGE` to a reviewed immutable image digest before production. The default tag is for local development only.
 - The runner process can control Docker and is therefore effectively root on its dedicated host. Do not co-locate unrelated workloads or secrets on that host.
 - MySQL CLI output parsing and the exact coursework stored-routine/account-privilege scripts still require end-to-end integration tests against the pinned image.
