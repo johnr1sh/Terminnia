@@ -4,12 +4,14 @@ import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { format as formatSQL } from 'sql-formatter';
 import { SQLiteAdapter } from './database/sqlite-adapter.mjs';
+import { MysqlSandboxAdapter } from './database/mysql-sandbox-adapter.mjs';
+const MYSQL_RUNNER_URL = import.meta.env.VITE_MYSQL_RUNNER_URL || '';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
 const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1', TAB_STORAGE = 'terminnia-sql-tabs-v1';
 const SAMPLE = 'SELECT e.name, e.department, e.salary, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department\nORDER BY e.salary DESC;';
-let editor, worker, dbAdapter, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
+let editor, worker, dbAdapter, localAdapter, mysqlAdapter, activeEngine = 'sqlite', seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
@@ -68,12 +70,12 @@ async function recoverWorker(reason) {
     startWorker();
     const saved=await loadSaved();
     const transfer=saved instanceof ArrayBuffer?[saved]:[];
-    dbAdapter ??= new SQLiteAdapter({ request: call });
-    await dbAdapter.connect({buffer:saved||undefined,transfer});
+    localAdapter ??= new SQLiteAdapter({ request: call });
+    if (activeEngine === 'sqlite') dbAdapter = localAdapter;
+    await localAdapter.connect({buffer:saved||undefined,transfer});
     ready=true;
     $('#startup-error').hidden=true;
-    $('#engine-label').textContent='SQLite WebAssembly · Local';
-    $('#connection').textContent='● Local database ready';
+    updateEngineChrome();
     await refreshTables();
     status('Ready · local database restored');
     toast('Database engine recovered. Your last saved database was restored.');
@@ -163,7 +165,8 @@ async function browse(name) {
   const body=document.createElement('tbody');
   (s.columns||[]).forEach(c=>{const tr=document.createElement('tr');[c.name,c.type||'—',c.notnull?'No':'Yes',c.pk?'Primary':'—'].forEach(v=>{const td=document.createElement('td');td.textContent=String(v);tr.append(td);});body.append(tr);});
   t.append(h,body);host.append(t);
-  editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:'SELECT * FROM "'+name.replace(/"/g,'""')+'" LIMIT 200;'}});
+  const identifier = activeEngine === 'mysql' ? '`' + name.replace(/`/g,'``') + '`' : '"' + name.replace(/"/g,'""') + '"';
+  editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:'SELECT * FROM '+identifier+' LIMIT 200;'}});
   await run();
   if(matchMedia('(max-width:760px)').matches)closeMobileSidebar();
 }
@@ -192,8 +195,11 @@ async function run() {
     else{$('#result-content').textContent='Statement executed. No result set.';$('#row-count').textContent='0';$('#csv').disabled=true;$('#result-tabs').hidden=true;columns=[];rows=[];}
     if(r.ok){
       await refreshTables();remember(query);$('#duration').textContent=(r.durationMs||0).toFixed(1)+' ms';
-      message('Query completed successfully.\nResult sets: '+results.length+'\nRows changed: '+r.rowsChanged+'\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\nSave will complete after the transaction is committed.':r.snapshotSaved?'\nDatabase snapshot saved locally.':'\nNo database changes; the existing local snapshot remains current.'));
-      switchPanel(results.length?'results':'messages');status('Ready · local database saved');
+      const completion = activeEngine === 'mysql'
+        ? 'Query completed successfully.\\nMySQL 8.4 · Temporary isolated sandbox\\nResult sets: '+results.length+'\\nExecution: '+(r.durationMs||0).toFixed(2)+' ms\\nRows changed: '+(r.rowsChanged ?? 'Not reported')
+        : 'Query completed successfully.\\nResult sets: '+results.length+'\\nRows changed: '+r.rowsChanged+'\\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\\nSave will complete after the transaction is committed.':r.snapshotSaved?'\\nDatabase snapshot saved locally.':'\\nNo database changes; the existing local snapshot remains current.');
+      message(completion);
+      switchPanel(results.length?'results':'messages');status(activeEngine === 'mysql' ? 'Ready · MySQL 8.4 sandbox' : 'Ready · local database saved');
     }else{message(r.error?.message||'SQL execution failed.',true);$('#duration').textContent='Failed';status('SQL execution failed','error');}
   }catch(e){message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
   finally{$('#run').disabled=false;$('#run').textContent='▶ Run';}
@@ -208,7 +214,7 @@ function exportCsv() {
 }
 function formatSql(source) {
   try {
-    return formatSQL(source, { language: 'sqlite', keywordCase: 'upper', tabWidth: 2 });
+    return formatSQL(source, { language: activeEngine === 'mysql' ? 'mysql' : 'sqlite', keywordCase: 'upper', tabWidth: 2 });
   } catch (error) {
     toast('Could not format this SQL: ' + error.message, true);
     return source;
@@ -238,8 +244,9 @@ async function initialize() {
   try{
     status('Opening local database…','busy');startWorker();
     const saved=await loadSaved(),transfer=saved instanceof ArrayBuffer?[saved]:[];
-    dbAdapter ??= new SQLiteAdapter({ request: call });
-    await dbAdapter.connect({buffer:saved||undefined,transfer});
+    localAdapter ??= new SQLiteAdapter({ request: call });
+    await localAdapter.connect({buffer:saved||undefined,transfer});
+    if (activeEngine === 'sqlite') dbAdapter = localAdapter;
     try {
       const stored=JSON.parse(localStorage.getItem(TAB_STORAGE)||'[]');
       if(Array.isArray(stored)){
@@ -269,6 +276,7 @@ async function initialize() {
     ready=true;renderTabs();applyEditorSettings();$('#engine-label').textContent='SQLite WebAssembly · Local';$('#connection').textContent='● Local database ready';
     status('Ready · data stored in this browser');await refreshTables();renderHistory();
     if(!saved)toast('Welcome to Terminnia. Sample database loaded.');
+    if(localStorage.getItem('terminnia-engine-mode')==='mysql' && MYSQL_RUNNER_URL) await switchToMysql();
   }catch(e){console.error(e);$('#connection').textContent='Database unavailable';$('#startup-error').hidden=false;$('#startup-error').textContent=e.message+' Check your connection and reload.';status('Startup failed','error');}
 }
 
@@ -397,11 +405,92 @@ document.querySelectorAll('[data-template]').forEach(button=>button.addEventList
 }));
 $('#add-tab').onclick=createTab;
 $('#new-query').onclick=createTab;
-$('#project-switcher').onclick=()=>toast('This local workspace currently contains one database project.');
+function updateEngineChrome() {
+  const mysql = activeEngine === 'mysql';
+  $('#engine-label').textContent = mysql ? 'MySQL 8.4 · Remote sandbox' : 'SQLite WebAssembly · Local';
+  $('#connection').textContent = mysql ? '● MySQL 8.4 sandbox connected' : '● Local database ready';
+  $('#project-switcher .workspace-name').textContent = mysql ? 'MySQL Lab' : 'My Database';
+  $('#project-switcher .workspace-type').textContent = mysql ? 'MYSQL 8.4' : 'LOCAL';
+  $('#project-switcher').setAttribute('aria-label', mysql ? 'Current workspace: MySQL Lab' : 'Current workspace: My Database');
+  $('#dialect-name').textContent = mysql ? 'MySQL 8.4' : 'SQLite';
+  $('#import-db').disabled = mysql;
+  $('#export-db').disabled = mysql;
+  $('#sqlite-check').textContent = mysql ? '' : '✓';
+  $('#mysql-check').textContent = mysql ? '✓' : '';
+  document.querySelector('[data-engine="sqlite"]').setAttribute('aria-current', String(!mysql));
+  document.querySelector('[data-engine="mysql"]').setAttribute('aria-current', String(mysql));
+  const note = $('#workspace-menu-note');
+  note.dataset.state = !MYSQL_RUNNER_URL ? 'error' : 'ready';
+  note.textContent = !MYSQL_RUNNER_URL
+    ? 'MySQL Lab is not available yet. The hosted runner URL must be configured during deployment.'
+    : mysql ? 'Your MySQL sandbox is temporary and will be deleted when you disconnect or when it expires.' : 'MySQL Lab starts a separate, disposable MySQL 8.4 database.';
+}
+async function switchToMysql() {
+  $('#workspace-menu').hidden = true;
+  $('#project-switcher').setAttribute('aria-expanded', 'false');
+  if (!MYSQL_RUNNER_URL) {
+    updateEngineChrome();
+    return toast('MySQL Lab is not connected yet. The hosted runner has not been configured.', true);
+  }
+  if (activeEngine === 'mysql' && mysqlAdapter) return;
+  const adapter = new MysqlSandboxAdapter({ baseUrl: MYSQL_RUNNER_URL });
+  status('Starting isolated MySQL 8.4 sandbox…', 'busy');
+  try {
+    await adapter.connect();
+    mysqlAdapter = adapter;
+    dbAdapter = adapter;
+    activeEngine = 'mysql';
+    ready = true;
+    tableName = null;
+    updateEngineChrome();
+    await refreshTables();
+    $('#schema-content').textContent = 'Create or select a database with SQL, then refresh the explorer.';
+    localStorage.setItem('terminnia-engine-mode', 'mysql');
+    status('Ready · MySQL 8.4 sandbox');
+    toast('MySQL 8.4 sandbox connected. Create your coursework database with CREATE DATABASE.');
+  } catch (error) {
+    await adapter.disconnect().catch(() => {});
+    activeEngine = 'sqlite';
+    dbAdapter = localAdapter;
+    ready = true;
+    updateEngineChrome();
+    status('MySQL connection failed', 'error');
+    toast(error.message, true);
+  }
+}
+async function switchToSqlite() {
+  $('#workspace-menu').hidden = true;
+  $('#project-switcher').setAttribute('aria-expanded', 'false');
+  if (mysqlAdapter) {
+    const old = mysqlAdapter;
+    mysqlAdapter = null;
+    await old.disconnect().catch(error => toast('MySQL sandbox cleanup will finish automatically: ' + error.message, true));
+  }
+  dbAdapter = localAdapter;
+  activeEngine = 'sqlite';
+  ready = Boolean(localAdapter);
+  tableName = null;
+  updateEngineChrome();
+  localStorage.setItem('terminnia-engine-mode', 'sqlite');
+  await refreshTables();
+  status('Ready · local database saved');
+}
+$('#project-switcher').onclick=()=>{
+  const menu=$('#workspace-menu');
+  menu.hidden=!menu.hidden;
+  $('#project-switcher').setAttribute('aria-expanded', String(!menu.hidden));
+  updateEngineChrome();
+};
+$('#workspace-menu').addEventListener('click',event=>{
+  const choice=event.target.closest('[data-engine]');
+  if(!choice)return;
+  if(choice.dataset.engine==='mysql')void switchToMysql();
+  else void switchToSqlite();
+});
 $('#panel-resize').addEventListener('pointerdown',e=>{
   const panel=$('#output-section'),workspace=$('.editor-workspace'),startY=e.clientY,startHeight=panel.getBoundingClientRect().height;
   const move=ev=>{const next=Math.max(125,Math.min(workspace.clientHeight-190,startHeight+startY-ev.clientY));panel.style.height=next+'px';};
   const stop=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);};
   window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop);
 });
-document.addEventListener('click',e=>{if(!e.target.closest('#settings-popover')&&!e.target.closest('#settings-toggle')&&!e.target.closest('[data-activity="settings"]'))$('#settings-popover').hidden=true;});
+document.addEventListener('click',e=>{if(!e.target.closest('#settings-popover')&&!e.target.closest('#settings-toggle')&&!e.target.closest('[data-activity="settings"]'))$('#settings-popover').hidden=true;if(!e.target.closest('#workspace-menu')&&!e.target.closest('#project-switcher')){$('#workspace-menu').hidden=true;$('#project-switcher').setAttribute('aria-expanded','false');}});
