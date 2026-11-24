@@ -27,7 +27,7 @@ test('honors DELIMITER around stored procedures and functions', () => {
     SELECT f();
   `;
   const statements = splitMysqlScript(source);
-  assert.equal(statements.length, 4);
+  assert.equal(statements.length, 5);
   assert.match(statements[1], /INSERT INTO t VALUES \(1\);\s*INSERT INTO t VALUES \(2\);/);
   assert.match(statements[2], /RETURN 1;/);
   assert.equal(statements[3], 'CALL p()');
