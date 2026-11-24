@@ -120,18 +120,25 @@ async function createContainer(session) {
   let ready = false, lastError = null;
   while (Date.now() < deadline) {
     try {
-      // mysqladmin ping also succeeds against the temporary initialization
-      // server started by the official image entrypoint. Wait for grants to
-      // be enabled so we only accept the final, authenticated server.
-      const grantsMode = await docker([
-        'exec', id, 'mysql', '--protocol=socket', '-uroot',
-        '--batch', '--skip-column-names', '-e', 'SELECT @@GLOBAL.skip_grant_tables'
-      ], { timeout: 4_000, maxOutput: 8_000 });
-      if (grantsMode.trim() === '0') {
-        ready = true;
-        break;
+      // The official MySQL image starts a temporary server during initialization.
+      // Wait for its completion marker before accepting a successful ping, or
+      // the temporary server can satisfy readiness just before it shuts down.
+      const logs = await docker(['logs', id], { timeout: 4_000, maxOutput: 24_000 });
+      const initializationFinished = logs.includes('MySQL init process done. Ready for start up.');
+      if (initializationFinished) {
+        await docker(['exec', id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
+        const probe = await docker([
+          'exec', id, 'mysql', '--protocol=socket', '-uroot',
+          '--batch', '--skip-column-names', '-e', 'SELECT 1'
+        ], { timeout: 4_000, maxOutput: 8_000 });
+        if (probe.trim() === '1') {
+          ready = true;
+          break;
+        }
+        lastError = new Error('MySQL did not return the expected readiness result.');
+      } else {
+        lastError = new Error('MySQL initialization has not finished.');
       }
-      lastError = new Error('MySQL is still running its temporary initialization server.');
     } catch (error) {
       lastError = error;
     }
