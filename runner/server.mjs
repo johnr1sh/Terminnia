@@ -236,6 +236,7 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       let body;
       try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Request must contain valid JSON.' }, origin); }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Request body must be a JSON object.' }, origin);
       const hasCredentials = Object.hasOwn(body, 'username') || Object.hasOwn(body, 'password');
       if (hasCredentials && (typeof body.username !== 'string' || !/^[A-Za-z0-9_.$-]{1,80}$/.test(body.username) || typeof body.password !== 'string' || Buffer.byteLength(body.password, 'utf8') > 256)) {
         return send(res, 400, { error: 'Provide a valid MySQL username and a password no longer than 256 bytes.' }, origin);
