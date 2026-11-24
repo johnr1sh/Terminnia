@@ -207,6 +207,7 @@ test('mobile editor can execute SQL and show query results', async ({ page }) =>
     page: document.documentElement.scrollWidth
   }));
   const overflowers = await page.locator('body *').evaluateAll(nodes => nodes.map(node => ({ tag: node.tagName, id: node.id, className: typeof node.className === 'string' ? node.className : '', left: Math.round(node.getBoundingClientRect().left), right: Math.round(node.getBoundingClientRect().right), width: Math.round(node.getBoundingClientRect().width) })).filter(item => item.right > window.innerWidth + 1 || item.left < -1).sort((a,b) => b.right-a.right).slice(0,12));
+  console.log('[mobile overflow diagnostic]', JSON.stringify(overflowers));
   expect(dimensions.page, JSON.stringify(overflowers)).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
