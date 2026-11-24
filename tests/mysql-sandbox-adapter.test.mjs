@@ -15,12 +15,12 @@ test('connects anonymously and keeps the session capability in memory', async ()
       return response({ id: '123e4567-e89b-12d3-a456-426614174000', token: 'x'.repeat(43), expiresInSeconds: 1200 });
     }
   });
+  await assert.rejects(() => adapter.execute('SELECT 1'), /not connected/);
   const info = await adapter.connect();
   assert.equal(info.engine, 'mysql');
   assert.equal(info.connected, true);
   assert.equal(calls[0].url, 'https://runner.example.test/api/sandboxes');
   assert.equal(calls[0].options.credentials, 'omit');
-  await assert.rejects(() => adapter.execute('SELECT 1'), /not connected|request failed/);
 });
 
 test('executes SQL with bearer authorization and no persistent credentials', async () => {
