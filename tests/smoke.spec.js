@@ -87,3 +87,21 @@ test('rejects an invalid SQLite import without replacing the active database', a
   await page.getByRole('button', { name: /Run/ }).click();
   await expect(page.locator('#result-content')).toContainText('Alex Morgan');
 });
+
+test('recovers from malformed persisted tab and history data', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('terminnia-sql-tabs-v1', JSON.stringify([
+      null,
+      {},
+      { id: 'not-an-id', name: 'broken.sql', content: 'SELECT 1;' },
+      { id: 1, name: 'valid.sql', content: 'SELECT 2 AS restored;' },
+      { id: 1, name: 'duplicate.sql', content: 'SELECT 3;' }
+    ]));
+    localStorage.setItem('terminnia-history-v1', JSON.stringify([null, 42, {}]));
+  });
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
+  await expect(page.locator('.editor-tab')).toHaveCount(1);
+  await expect(page.locator('.cm-content')).toContainText('SELECT 2 AS restored');
+  await expect(page.locator('#history-list')).toContainText('Executed queries appear here.');
+});
