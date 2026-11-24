@@ -121,3 +121,34 @@ test('persists explicit transactions after COMMIT', async ({ page }) => {
   await page.getByRole('button', { name: /Run/ }).click();
   await expect(page.locator('#result-content')).toContainText('Transaction Check');
 });
+
+
+test('recovers the IndexedDB save queue after a transient storage write failure', async ({ page }) => {
+  await page.evaluate(() => {
+    const original = IDBDatabase.prototype.transaction;
+    let failNextWrite = true;
+    IDBDatabase.prototype.transaction = function (...args) {
+      if (failNextWrite && args[1] === 'readwrite') {
+        failNextWrite = false;
+        throw new DOMException('Simulated temporary storage failure', 'QuotaExceededError');
+      }
+      return original.apply(this, args);
+    };
+  });
+
+  await replaceSql(page, "CREATE TABLE storage_recovery (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO storage_recovery(value) VALUES ('first');");
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#status')).toContainText('failed');
+  await expect(page.locator('#message-content')).toContainText(/storage failure/i);
+
+  await replaceSql(page, "INSERT INTO storage_recovery(value) VALUES ('second');");
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#message-content')).toContainText(/Database snapshot saved locally/i);
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
+  await replaceSql(page, 'SELECT value FROM storage_recovery ORDER BY id;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('first');
+  await expect(page.locator('#result-content')).toContainText('second');
+});
