@@ -185,7 +185,7 @@ async function executeSql(session, sql, credentials = {}) {
   // DELIMITER is a mysql-client directive. Re-frame complete statements with
   // a random delimiter so procedure/function bodies remain intact.
   const delimiter = '__TERM_' + randomBytes(8).toString('hex') + '__';
-  const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + delimiter).join('\n') + '\nDELIMITER ;\n';
+  const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + ' ' + delimiter).join('\n') + '\nDELIMITER ;\n';
   const username = credentials.username || 'root';
   const password = credentials.username ? credentials.password : session.dbPassword;
   const configPath = '/tmp/.terminnia-' + randomBytes(12).toString('hex') + '.cnf';
