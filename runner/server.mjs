@@ -118,7 +118,7 @@ async function createContainer(session) {
     try {
       await docker(['exec', id, 'mysqladmin', '--protocol=socket', '-uroot', 'ping', '--silent'], { timeout: 4_000, maxOutput: 8_000 });
       await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
-        input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\\nFLUSH PRIVILEGES;\\n",
+        input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\nFLUSH PRIVILEGES;\n",
         timeout: 8_000, maxOutput: 8_000
       });
       return;
