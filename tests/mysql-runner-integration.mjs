@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 
 const base = process.env.RUNNER_URL || 'http://127.0.0.1:8787';
 async function request(path, options = {}) {
@@ -20,9 +21,20 @@ async function execute(session, sql, credentials = {}) {
   });
 }
 
+const deniedOrigin = await fetch(base + '/api/sandboxes', { method: 'POST', headers: { origin: 'https://untrusted.example' } });
+assert.equal(deniedOrigin.status, 403, 'unapproved browser origins must be rejected');
+const preflight = await fetch(base + '/api/sandboxes', { method: 'OPTIONS', headers: { origin: 'http://127.0.0.1:4173', 'access-control-request-method': 'POST' } });
+assert.equal(preflight.status, 204, 'configured browser origin must pass preflight');
+assert.equal(preflight.headers.get('access-control-allow-origin'), 'http://127.0.0.1:4173');
+
 const first = await createSandbox();
 let second;
 try {
+  const containerId = execFileSync('docker', ['ps', '-q', '--filter', 'label=terminnia.session=' + first.id], { encoding: 'utf8' }).trim();
+  assert.ok(containerId, 'sandbox must own a real Docker container');
+  const isolation = execFileSync('docker', ['inspect', '--format', '{{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}|{{.HostConfig.Memory}}|{{.HostConfig.PidsLimit}}|{{.HostConfig.ReadonlyRootfs}}', containerId], { encoding: 'utf8' }).trim();
+  assert.equal(isolation, 'none|null|536870912|128|true', 'container must have no network/ports and strict resource/filesystem limits');
+
   const script = `
 CREATE DATABASE terminnia_runner_test;
 USE terminnia_runner_test;
