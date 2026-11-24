@@ -206,7 +206,8 @@ test('mobile editor can execute SQL and show query results', async ({ page }) =>
     viewport: document.documentElement.clientWidth,
     page: document.documentElement.scrollWidth
   }));
-  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
+  const overflowers = await page.locator('body *').evaluateAll(nodes => nodes.map(node => ({ tag: node.tagName, id: node.id, className: typeof node.className === 'string' ? node.className : '', left: Math.round(node.getBoundingClientRect().left), right: Math.round(node.getBoundingClientRect().right), width: Math.round(node.getBoundingClientRect().width) })).filter(item => item.right > window.innerWidth + 1 || item.left < -1).sort((a,b) => b.right-a.right).slice(0,12));
+  expect(dimensions.page, JSON.stringify(overflowers)).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
 test('editor preferences survive a reload', async ({ page }) => {
