@@ -74,3 +74,35 @@ jobs:
           MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
           MYSQL_ROOT_PASSWORD: rootpass
         run: bash tests/mysql-lab-ci.sh
+
+  mysql-runner-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build isolated runner image
+        run: docker build --pull -f runner/Dockerfile -t terminnia-runner-ci .
+      - name: Start runner with disposable CI Docker daemon
+        run: |
+          docker run -d --name terminnia-runner-ci -p 8787:8787 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e NODE_ENV=development \
+            terminnia-runner-ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8787/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs terminnia-runner-ci
+          exit 1
+      - name: Test real isolated MySQL 8.4 execution
+        env:
+          RUNNER_URL: http://127.0.0.1:8787
+        run: node tests/mysql-runner-integration.mjs
+      - name: Stop runner and remove disposable sandboxes
+        if: always()
+        run: docker rm -f terminnia-runner-ci || true
