@@ -17,6 +17,9 @@ test('SQLite adapter implements the shared lifecycle and metadata contract', asy
       if (action === 'init') return { ok: true };
       if (action === 'tables') return { ok: true, tables: [['people', 'table'], ['active_people', 'view']] };
       if (action === 'schema') return { ok: true, columns: [{ name: 'id', type: 'INTEGER' }] };
+      if (action === 'exec' && payload.sql === 'INVALID SQL') {
+        return { ok: false, error: { message: 'syntax error' } };
+      }
       if (action === 'exec') return { ok: true, results: [{ columns: ['ok'], values: [[1]] }] };
       return { ok: true };
     },
@@ -30,6 +33,7 @@ test('SQLite adapter implements the shared lifecycle and metadata contract', asy
     name: 'people', type: 'table', columns: [{ name: 'id', type: 'INTEGER' }]
   });
   assert.equal((await adapter.execute('SELECT 1')).ok, true);
+  assert.equal((await adapter.execute('INVALID SQL')).ok, false);
   assert.equal((await adapter.getCapabilities()).localPersistence, true);
   await adapter.disconnect();
   assert.equal((await adapter.getConnectionInfo()).connected, false);
