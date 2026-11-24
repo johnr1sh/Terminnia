@@ -6,6 +6,7 @@ let SQL = null;
 let db = null;
 let stagedImport = null;
 let stagedImportSequence = 0;
+let lastSnapshotMetadata = null;
 
 function reply(id, payload, transfer = []) {
   self.postMessage({ id, ...payload }, transfer);
@@ -26,10 +27,21 @@ function snapshot() {
 function metadata() {
   const result = db.exec("SELECT total_changes() AS changes");
   const schema = db.exec("PRAGMA schema_version");
+  const userVersion = db.exec("PRAGMA user_version");
+  const applicationId = db.exec("PRAGMA application_id");
   return {
     changes: Number(result[0]?.values?.[0]?.[0] || 0),
-    schemaVersion: Number(schema[0]?.values?.[0]?.[0] || 0)
+    schemaVersion: Number(schema[0]?.values?.[0]?.[0] || 0),
+    userVersion: Number(userVersion[0]?.values?.[0]?.[0] || 0),
+    applicationId: Number(applicationId[0]?.values?.[0]?.[0] || 0)
   };
+}
+function metadataChanged(next, previous) {
+  if (!previous) return true;
+  return next.changes !== previous.changes ||
+    next.schemaVersion !== previous.schemaVersion ||
+    next.userVersion !== previous.userVersion ||
+    next.applicationId !== previous.applicationId;
 }
 
 const CDN_BASES = [
@@ -72,6 +84,7 @@ self.onmessage = async (event) => {
         db.run("CREATE TABLE departments(id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, budget REAL); CREATE TABLE employees(id INTEGER PRIMARY KEY, name TEXT NOT NULL, department TEXT NOT NULL, salary REAL, hired_on TEXT DEFAULT CURRENT_DATE); INSERT INTO departments(name,budget) VALUES('Engineering',180000),('Design',90000),('Operations',120000); INSERT INTO employees(name,department,salary) VALUES('Alex Morgan','Engineering',85000),('Maria Santos','Design',72000),('Jordan Lee','Engineering',91000),('Sam Rivera','Operations',65000),('Taylor Kim','Design',78000);");
       }
       const initialSnapshot = snapshot();
+      lastSnapshotMetadata = metadata();
       const response = { ok: true, version: VERSION };
       const transfer = [];
       if (initialSnapshot instanceof ArrayBuffer) { response.snapshot = initialSnapshot; transfer.push(initialSnapshot); }
@@ -92,15 +105,19 @@ self.onmessage = async (event) => {
         error = { message: cause.message || String(cause), name: cause.name || 'SqlError' };
       }
       const after = metadata();
-      const changed = before.changes !== after.changes || before.schemaVersion !== after.schemaVersion;
+      const changed = metadataChanged(after, lastSnapshotMetadata);
       let saved = null;
-      if (changed || action === 'exec') saved = snapshot();
+      if (changed) {
+        saved = snapshot();
+        if (saved instanceof ArrayBuffer) lastSnapshotMetadata = after;
+      }
       const response = {
         ok: !error,
         results: normalizeResults(results || []),
         durationMs: performance.now() - started,
         rowsChanged: Math.max(0, after.changes - before.changes),
         error,
+        snapshotSaved: saved instanceof ArrayBuffer,
         snapshotDeferred: !!saved?.deferred
       };
       const transfer = [];
@@ -115,6 +132,7 @@ self.onmessage = async (event) => {
     if (action === 'export') {
       const saved = snapshot();
       if (saved?.deferred) throw new Error('Finish or roll back the active transaction before exporting the database.');
+      lastSnapshotMetadata = metadata();
       reply(id, { ok: true, buffer: saved }, [saved]);
       return;
     }
@@ -148,6 +166,7 @@ self.onmessage = async (event) => {
       const previous = db;
       db = stagedImport.database;
       stagedImport = null;
+      lastSnapshotMetadata = metadata();
       if (previous) previous.close();
       reply(id, { ok: true });
       return;
