@@ -64,7 +64,7 @@ try {
     'CREATE PROCEDURE GetStudentsByYear(IN p_year_level INT) BEGIN SELECT * FROM students WHERE year_level=p_year_level; END$$',
     'CREATE PROCEDURE GetStudentsWithBalance(IN p_minimum_balance DECIMAL(10,2)) BEGIN SELECT * FROM students WHERE tuition_fee-amount_paid>=p_minimum_balance; END$$',
     'CREATE PROCEDURE SearchStudents(IN p_program VARCHAR(50),IN p_year_level INT) BEGIN SELECT * FROM students WHERE program=p_program AND year_level=p_year_level; END$$',
-    "CREATE PROCEDURE UpdateStudentPayment(IN p_student_id INT,IN p_payment DECIMAL(10,2)) BEGIN DECLARE v_fee DECIMAL(10,2); DECLARE v_paid DECIMAL(10,2); DECLARE v_found INT DEFAULT 1; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_found=0; IF p_payment<=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Payment must be greater than zero'; END IF; SELECT tuition_fee,amount_paid INTO v_fee,v_paid FROM students WHERE student_id=p_student_id; IF v_found=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Student not found'; END IF; IF v_paid+p_payment>v_fee THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Payment exceeds tuition balance'; END IF; UPDATE students SET amount_paid=amount_paid+p_payment WHERE student_id=p_student_id; SELECT 'PAYMENT UPDATED' AS message; END$$",
+    "CREATE PROCEDURE UpdateStudentPayment(IN p_student_id INT,IN p_payment DECIMAL(10,2)) BEGIN DECLARE v_fee DECIMAL(10,2); DECLARE v_paid DECIMAL(10,2); DECLARE v_found INT DEFAULT 1; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_found=0; IF p_payment IS NULL OR p_payment<=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Payment must be greater than zero'; END IF; SELECT tuition_fee,amount_paid INTO v_fee,v_paid FROM students WHERE student_id=p_student_id; IF v_found=0 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Student not found'; END IF; IF v_paid+p_payment>v_fee THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Payment exceeds tuition balance'; END IF; UPDATE students SET amount_paid=amount_paid+p_payment WHERE student_id=p_student_id; SELECT 'PAYMENT UPDATED' AS message; END$$",
     'CREATE FUNCTION CalculateBalance(p_student_id INT) RETURNS DECIMAL(10,2) DETERMINISTIC READS SQL DATA BEGIN DECLARE v_balance DECIMAL(10,2) DEFAULT 0; SELECT tuition_fee-amount_paid INTO v_balance FROM students WHERE student_id=p_student_id; RETURN IFNULL(v_balance,0); END$$',
     "CREATE FUNCTION GetPaymentStatus(p_student_id INT) RETURNS VARCHAR(30) DETERMINISTIC READS SQL DATA BEGIN DECLARE v_balance DECIMAL(10,2) DEFAULT NULL; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_balance=NULL; SELECT tuition_fee-amount_paid INTO v_balance FROM students WHERE student_id=p_student_id; IF v_balance IS NULL THEN RETURN 'INVALID STUDENT'; END IF; IF v_balance=0 THEN RETURN 'FULLY PAID'; END IF; RETURN 'WITH BALANCE'; END$$",
     'CREATE FUNCTION GetTuitionDiscount(p_student_id INT) RETURNS DECIMAL(10,2) DETERMINISTIC READS SQL DATA BEGIN DECLARE v_fee DECIMAL(10,2) DEFAULT NULL; DECLARE v_paid DECIMAL(10,2) DEFAULT 0; DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fee=NULL; SELECT tuition_fee,amount_paid INTO v_fee,v_paid FROM students WHERE student_id=p_student_id; IF v_fee IS NULL THEN RETURN 0; END IF; IF v_paid>=v_fee*0.5 THEN RETURN v_fee*0.10; END IF; IF v_paid>0 THEN RETURN v_fee*0.05; END IF; RETURN 0; END$$',
@@ -92,6 +92,8 @@ try {
   const negativePayment = await run('CALL UpdateStudentPayment(1,-10);');
   assert.equal(negativePayment.status, 422, 'negative payment must be rejected');
   assert.match(negativePayment.body.detail || '', /greater than zero/i);
+  const nullPayment = await run('CALL UpdateStudentPayment(1,NULL);');
+  assert.equal(nullPayment.status, 422, 'NULL payment must be rejected');
   const excessPayment = await run('CALL UpdateStudentPayment(1,999999);');
   assert.equal(excessPayment.status, 422, 'payment exceeding tuition must be rejected');
 
@@ -115,6 +117,11 @@ try {
   assert.equal((await run('SELECT * FROM students LIMIT 1', studentCreds)).status, 200, 'student SELECT should succeed');
   assert.equal((await run("INSERT INTO students(student_name) VALUES('Denied')", studentCreds)).status, 422, 'student INSERT must be denied');
   assert.equal((await run('DELETE FROM students WHERE student_id=1', studentCreds)).status, 422, 'student DELETE must be denied');
+  const report = { username: 'report_user', password: 'ReportPass_2026!' };
+  assert.equal((await run('SELECT * FROM students LIMIT 1', report)).status, 200, 'report_user SELECT should succeed');
+  assert.equal((await run("INSERT INTO students(student_name) VALUES('Report Denied')", report)).status, 422, 'report_user INSERT must be denied');
+  assert.equal((await run('UPDATE students SET amount_paid=0 WHERE student_id=1', report)).status, 422, 'report_user UPDATE must be denied');
+  assert.equal((await run('DELETE FROM students WHERE student_id=1', report)).status, 422, 'report_user DELETE must be denied');
   const teacher = { username: 'teacher_user', password: 'TeacherPass_2026!' };
   assert.equal((await run("INSERT INTO students(student_name) VALUES('Teacher Test')", teacher)).status, 200);
   assert.equal((await run("UPDATE students SET amount_paid=1000 WHERE student_name='Teacher Test'", teacher)).status, 200);
