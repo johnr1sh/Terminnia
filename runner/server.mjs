@@ -184,7 +184,9 @@ async function executeSql(session, sql, credentials = {}) {
   if (!statements.length) return { results: [], statementCount: 0 };
   // DELIMITER is a mysql-client directive. Re-frame complete statements with
   // a random delimiter so procedure/function bodies remain intact.
-  const delimiter = '__TERM_' + randomBytes(8).toString('hex') + '__';
+  // mysql's client stores the delimiter in a 16-byte buffer (15 usable bytes).
+  // Keep the random marker within that limit so it is not truncated by mysql.
+  const delimiter = '__T' + randomBytes(5).toString('hex');
   const script = statements.map(s => s + ' ' + delimiter).join('\n') + '\n';
   const username = credentials.username || 'root';
   const password = credentials.username ? credentials.password : session.dbPassword;
