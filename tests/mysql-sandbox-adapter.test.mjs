@@ -95,3 +95,16 @@ test('disconnect destroys the remote sandbox', async () => {
   assert.equal(calls[1].options.method, 'DELETE');
   assert.equal((await adapter.getConnectionInfo()).connected, false);
 });
+
+
+test('includes MySQL server diagnostics for syntax and permission errors', async () => {
+  let index = 0;
+  const adapter = new MysqlSandboxAdapter({
+    baseUrl: 'https://runner.example.test',
+    fetchImpl: async () => ++index === 1
+      ? response({ id: 'sandbox-id', token: 'secret-token-which-is-long-enough-1234567890' })
+      : response({ error: 'MySQL rejected the SQL statement.', detail: 'ERROR 1142 (42000): SELECT command denied' }, 422)
+  });
+  await adapter.connect();
+  await assert.rejects(() => adapter.execute('SELECT * FROM secret_table'), /SELECT command denied/);
+});
