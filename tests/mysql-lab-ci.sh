@@ -10,7 +10,7 @@ mysql_root() {
 mysql_user() {
   local user="$1" password="$2"
   shift 2
-  docker exec "$MYSQL_CONTAINER_ID" mysql --protocol=socket "-u$user" "-p$password" terminnia_mysql_ci "$@"
+  docker exec "$MYSQL_CONTAINER_ID" mysql --protocol=socket "-u$user" "-p$password" terminnia_mysql_advanced_ci "$@"
 }
 expect_denied() {
   local description="$1"
@@ -27,16 +27,16 @@ echo "1. Provisioning disposable MySQL laboratory database"
 mysql_root < tests/fixtures/mysql-labs.sql
 
 echo "2. Verifying stored routines and functions"
-mysql_root --database=terminnia_mysql_ci --execute="CALL GetStudentsByProgram('BSCS')" >/dev/null
-balance="$(mysql_root --database=terminnia_mysql_ci --batch --skip-column-names --execute="SELECT CalculateBalance(3)")"
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL GetStudentsByProgram('BSCS')" >/dev/null
+balance="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT CalculateBalance(3)")"
 [ "$balance" = "13000.00" ] || { echo "Unexpected balance: $balance"; exit 1; }
-status="$(mysql_root --database=terminnia_mysql_ci --batch --skip-column-names --execute="SELECT GetPaymentStatus(2), GetPaymentStatus(99999)")"
+status="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT GetPaymentStatus(2), GetPaymentStatus(99999)")"
 [ "$status" = $'FULLY PAID\tINVALID STUDENT' ] || { echo "Unexpected payment status: $status"; exit 1; }
-discount="$(mysql_root --database=terminnia_mysql_ci --batch --skip-column-names --execute="SELECT GetTuitionDiscount(1), GetTuitionDiscount(11)")"
+discount="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT GetTuitionDiscount(1), GetTuitionDiscount(11)")"
 [ "$discount" = $'2500.00\t0.00' ] || { echo "Unexpected discount: $discount"; exit 1; }
-mysql_root --database=terminnia_mysql_ci --execute="CALL UpdateStudentPayment(1, 1000.00)" >/dev/null
-expect_denied "reject a negative payment" mysql_root --database=terminnia_mysql_ci --execute="CALL UpdateStudentPayment(1, -1.00)"
-expect_denied "reject payment above tuition" mysql_root --database=terminnia_mysql_ci --execute="CALL UpdateStudentPayment(1, 999999.00)"
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, 1000.00)" >/dev/null
+expect_denied "reject a negative payment" mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, -1.00)"
+expect_denied "reject payment above tuition" mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, 999999.00)"
 
 echo "3. Verifying separate-account privileges"
 student_rows="$(mysql_user student_user student_ci_pw --batch --skip-column-names --execute="SELECT COUNT(*) FROM students")"
@@ -53,9 +53,9 @@ mysql_user admin_assistant assistant_ci_pw --execute="UPDATE students SET amount
 expect_denied "admin_assistant cannot DELETE" mysql_user admin_assistant assistant_ci_pw --execute="DELETE FROM students WHERE student_name='Assistant Test'"
 
 echo "4. Verifying REVOKE and restored SELECT access"
-mysql_root --execute="REVOKE SELECT ON terminnia_mysql_ci.students FROM 'student_user'@'localhost'"
+mysql_root --execute="REVOKE SELECT ON terminnia_mysql_advanced_ci.students FROM 'student_user'@'localhost'"
 expect_denied "student_user after REVOKE" mysql_user student_user student_ci_pw --execute="SELECT * FROM students"
-mysql_root --execute="GRANT SELECT ON terminnia_mysql_ci.students TO 'student_user'@'localhost'"
+mysql_root --execute="GRANT SELECT ON terminnia_mysql_advanced_ci.students TO 'student_user'@'localhost'"
 mysql_user student_user student_ci_pw --execute="SELECT COUNT(*) FROM students" >/dev/null
 mysql_root --execute="SHOW GRANTS FOR 'student_user'@'localhost'"
 
