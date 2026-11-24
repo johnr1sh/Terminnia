@@ -65,3 +65,17 @@ test('rejects unterminated quoted values and block comments', () => {
   assert.throws(() => splitMysqlScript("SELECT 'unfinished"), /Unterminated quoted value/);
   assert.throws(() => splitMysqlScript('SELECT 1 /* unfinished'), /Unterminated block comment/);
 });
+
+test('preserves token boundaries around ordinary block comments', () => {
+  const statements = splitMysqlScript('SELECT/* comment */1; SELECT 2/* comment */+3;');
+  assert.equal(statements.length, 2);
+  assert.equal(statements[0], 'SELECT 1');
+  assert.equal(statements[1], 'SELECT 2 +3');
+});
+
+test('preserves MySQL executable version comments for the server', () => {
+  const statements = splitMysqlScript('/*!40101 SET @saved_cs_client = @@character_set_client */; SELECT 1;');
+  assert.equal(statements.length, 2);
+  assert.equal(statements[0], '/*!40101 SET @saved_cs_client = @@character_set_client */');
+  assert.equal(statements[1], 'SELECT 1');
+});
