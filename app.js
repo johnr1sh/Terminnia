@@ -15,6 +15,9 @@ let editor, worker, dbAdapter, localAdapter, mysqlAdapter, activeEngine = 'sqlit
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
+function hasSensitiveCredentials(sql) {
+  return /\\bIDENTIFIED\\s+BY\\s+(['\"])(?:\\\\.|[\\s\\S])*?\\1/i.test(sql) || /\\bSET\\s+PASSWORD\\b/i.test(sql) || /\\bPASSWORD\\s*\\(\\s*['\"]/i.test(sql);
+}
 function status(text, state='ready') { $('#status').textContent=text; $('#status').dataset.state=state; }
 function toast(text, error=false) {
   const el=$('#toast'); el.textContent=text; el.dataset.kind=error?'error':'success'; el.classList.add('visible');
@@ -171,6 +174,7 @@ async function browse(name) {
   if(matchMedia('(max-width:760px)').matches)closeMobileSidebar();
 }
 function remember(text) {
+  if(hasSensitiveCredentials(text))return;
   try{const old=JSON.parse(localStorage.getItem(HISTORY)||'[]');const list=[text,...old.filter(x=>x!==text)].slice(0,30);localStorage.setItem(HISTORY,JSON.stringify(list));renderHistory();}catch{}
 }
 function renderHistory() {
@@ -267,7 +271,7 @@ async function initialize() {
     editor=new EditorView({
       doc:tabs[0].content??SAMPLE,
       extensions:[basicSetup,sql(),oneDark,EditorView.lineWrapping,EditorView.updateListener.of(u=>{
-        if(u.docChanged){const value=u.state.doc.toString();try{localStorage.setItem(QUERY,value);const active=tabs.find(t=>t.id===activeTabId);if(active){active.content=value;saveTabs();}$('#draft-state').textContent='Draft saved locally';}catch{$('#draft-state').textContent='Draft not saved';}}
+        if(u.docChanged){const value=u.state.doc.toString(),active=tabs.find(t=>t.id===activeTabId);if(active)active.content=value;if(hasSensitiveCredentials(value)){try{localStorage.removeItem(QUERY);saveTabs();}catch{}$('#draft-state').textContent='Sensitive SQL kept in memory only';}else{try{localStorage.setItem(QUERY,value);if(active)saveTabs();$('#draft-state').textContent='Draft saved locally';}catch{$('#draft-state').textContent='Draft not saved';}}}
         const pos=u.state.selection.main.head, line=u.state.doc.lineAt(pos);
         $('#cursor').textContent='Ln '+line.number+', Col '+(pos-line.from+1);
         $('#status-selection').textContent=u.state.selection.main.empty?'No selection':(u.state.selection.main.to-u.state.selection.main.from)+' selected';
@@ -356,7 +360,7 @@ $('#font-size').onchange=e=>{const cm=document.querySelector('.cm-editor');if(cm
 $('#line-wrap').onchange=e=>{$('#editor').classList.toggle('no-wrap',!e.target.checked);persistEditorSettings();};
 $('#zen-mode').onchange=e=>{document.body.classList.toggle('zen-mode',e.target.checked);persistEditorSettings();};
 $('#panel-toggle').onclick=()=>{const panel=$('#output-section'),resize=$('#panel-resize');const hidden=panel.hidden;panel.hidden=!hidden;resize.hidden=!hidden;$('#panel-toggle').textContent=hidden?'⌄':'⌃';};
-function saveTabs(){try{localStorage.setItem(TAB_STORAGE,JSON.stringify(tabs));}catch{toast('Could not save SQL tabs. Browser storage may be full.',true);}}
+function saveTabs(){try{const safeTabs=tabs.map(tab=>({...tab,content:hasSensitiveCredentials(tab.content)?'':tab.content}));localStorage.setItem(TAB_STORAGE,JSON.stringify(safeTabs));}catch{toast('Could not save SQL tabs. Browser storage may be full.',true);}}
 function renderTabs(){
   const strip=$('.tab-strip'), add=$('#add-tab');
   strip.querySelectorAll('.editor-tab').forEach(n=>n.remove());
