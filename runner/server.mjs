@@ -156,10 +156,16 @@ async function executeSql(session, sql) {
   const script = 'DELIMITER ' + delimiter + '\n' + statements.map(s => s + delimiter).join('\n') + '\nDELIMITER ;\n';
   const output = await docker([
     'exec', '-i', '-e', 'MYSQL_PWD=' + session.dbPassword, session.containerId,
-    'mysql', '--protocol=socket', '-uroot', '--batch', '--column-names',
+    'mysql', '--protocol=socket', '-uroot', ...(session.currentDatabase ? ['--database=' + session.currentDatabase] : []), '--batch', '--column-names',
     '--default-character-set=utf8mb4', '--skip-line-numbers'
   ], { input: script, timeout: QUERY_TIMEOUT_MS, maxOutput: MAX_OUTPUT_BYTES });
   session.lastUsedAt = Date.now();
+  for (const statement of statements) {
+    const use = statement.match(/^\\s*USE\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))\\s*$/i);
+    const drop = statement.match(/^\\s*DROP\\s+DATABASE(?:\\s+IF\\s+EXISTS)?\\s+(?:`((?:``|[^`])+)`|([A-Za-z0-9_$]+))/i);
+    if (use) session.currentDatabase = (use[1] || use[2]).replace(/``/g, '`');
+    if (drop && (drop[1] || drop[2]) === session.currentDatabase) session.currentDatabase = null;
+  }
   return { results: parseMysqlOutput(output), statementCount: statements.length };
 }
 function findSession(req, id) {
@@ -184,7 +190,7 @@ async function createSession() {
   const session = {
     id, tokenHash: sha(token), dbPassword: randomBytes(32).toString('base64url'),
     containerName: 'terminnia-mysql-' + id, containerId: null,
-    createdAt: Date.now(), lastUsedAt: Date.now()
+    createdAt: Date.now(), lastUsedAt: Date.now(), currentDatabase: null
   };
   try { await createContainer(session); }
   catch (error) { await removeContainer(session.containerId); throw error; }
@@ -228,12 +234,14 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, result, origin);
     }
     if (route.action === 'schema' && req.method === 'GET') {
+      if (!session.currentDatabase) return send(res, 200, { objects: [] }, origin);
       const result = await executeSql(session, 'SHOW FULL TABLES');
       return send(res, 200, { objects: result.results[0]?.values || [] }, origin);
     }
     if (route.action === 'reset' && req.method === 'POST') {
       await removeContainer(session.containerId);
       session.containerId = null;
+      session.currentDatabase = null;
       try { await createContainer(session); }
       catch (error) { await destroySession(session); throw error; }
       session.lastUsedAt = Date.now();
