@@ -244,3 +244,5 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #workspace-menu-note[data-state=error]{color:#ffaaa5}
 .workspace-type{white-space:nowrap}
 @media(max-width:620px){.workspace-menu{left:0;width:min(264px,calc(100vw - 22px))}.brand-area{gap:7px}.brand-divider{display:none}.project-switcher{gap:5px;padding:6px 5px}.workspace-type{font-size:8px}}
+
+@media(max-width:390px){.editor-footer{gap:8px;padding:0 7px}.editor-footer .draft-state{display:none}.editor-footer span:nth-last-child(-n+2){display:none}}
