@@ -69,13 +69,13 @@ export class MysqlSandboxAdapter extends DatabaseAdapter {
   async describeObject(name, type = 'table') {
     this.#requireConnection();
     if (!['table', 'view'].includes(type)) throw new TypeError('Unsupported MySQL object type.');
-    const result = await this.execute('SHOW FULL COLUMNS FROM ' + quoteIdentifier(name));
+    const result = await this.execute('SHOW COLUMNS FROM ' + quoteIdentifier(name));
     const rows = result.results?.[0]?.values || [];
     return {
       name, type,
       columns: rows.map(row => ({
         name: row[0], type: row[1], notnull: row[2] === 'NO',
-        pk: row[3] === 'PRI', defaultValue: row[5], extra: row[6]
+        pk: row[3] === 'PRI', defaultValue: row[4], extra: row[5]
       }))
     };
   }
