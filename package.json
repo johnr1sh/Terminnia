@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test:unit": "node --test tests/*.test.mjs"
+    "test:unit": "node --test tests/*.test.mjs",
+    "start:runner": "node runner/server.mjs",
+    "test:runner": "node --test runner/*.test.mjs"
   },
   "dependencies": {
     "@codemirror/lang-sql": "6.10.0",
