@@ -12,11 +12,11 @@ async function createSandbox() {
   assert.ok(body.id && body.token, 'runner must return a sandbox id and one-time capability');
   return body;
 }
-async function execute(session, sql) {
+async function execute(session, sql, credentials = {}) {
   return request('/api/sandboxes/' + session.id + '/execute', {
     method: 'POST',
     headers: { authorization: 'Bearer ' + session.token, 'content-type': 'application/json' },
-    body: JSON.stringify({ sql })
+    body: JSON.stringify({ sql, ...credentials })
   });
 }
 
@@ -39,15 +39,25 @@ CALL GetStudent(1);
 CREATE USER 'lab_reader'@'localhost' IDENTIFIED BY 'ReaderPass_2026!';
 GRANT SELECT ON terminnia_runner_test.students TO 'lab_reader'@'localhost';
 SHOW GRANTS FOR 'lab_reader'@'localhost';
-REVOKE SELECT ON terminnia_runner_test.students FROM 'lab_reader'@'localhost';
-DROP USER 'lab_reader'@'localhost';
 `;
   const executed = await execute(first, script);
   assert.equal(executed.response.status, 200, JSON.stringify(executed.body));
-  assert.equal(executed.body.statementCount, 12);
+  assert.equal(executed.body.statementCount, 10);
   const allRows = executed.body.results.flatMap(result => result.values);
   assert.ok(allRows.some(row => row.includes('Ada')), 'SELECT/CALL must return real MySQL rows');
   assert.ok(allRows.some(row => row.some(value => String(value).includes('GRANT SELECT'))), 'SHOW GRANTS must return privilege information');
+  const readerAllowed = await execute(first, 'SELECT id, name FROM students WHERE id = 1', { username: 'lab_reader', password: 'ReaderPass_2026!' });
+  assert.equal(readerAllowed.response.status, 200, JSON.stringify(readerAllowed.body));
+  assert.ok(readerAllowed.body.results.flatMap(result => result.values).some(row => row.includes('Ada')));
+  const readerDeniedWrite = await execute(first, "INSERT INTO students VALUES (3, 'No permission')", { username: 'lab_reader', password: 'ReaderPass_2026!' });
+  assert.equal(readerDeniedWrite.response.status, 422, 'read-only account must be denied INSERT');
+  const revoke = await execute(first, "REVOKE SELECT ON terminnia_runner_test.students FROM 'lab_reader'@'localhost'; SHOW GRANTS FOR 'lab_reader'@'localhost';");
+  assert.equal(revoke.response.status, 200, JSON.stringify(revoke.body));
+  const readerDeniedRead = await execute(first, 'SELECT * FROM students', { username: 'lab_reader', password: 'ReaderPass_2026!' });
+  assert.equal(readerDeniedRead.response.status, 422, 'REVOKE must remove the account SELECT permission');
+  const dropUser = await execute(first, "DROP USER 'lab_reader'@'localhost'");
+  assert.equal(dropUser.response.status, 200, JSON.stringify(dropUser.body));
+
   const persistedContext = await execute(first, 'SELECT COUNT(*) AS total FROM students');
   assert.equal(persistedContext.response.status, 200, JSON.stringify(persistedContext.body));
   assert.ok(persistedContext.body.results.flatMap(result => result.values).some(row => row.includes('2')), 'USE database context must persist across requests');
