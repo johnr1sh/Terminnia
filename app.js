@@ -5,9 +5,9 @@ import { format as formatSQL } from 'https://esm.sh/sql-formatter@15.10.0';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
-const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1';
+const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1', TAB_STORAGE = 'terminnia-sql-tabs-v1';
 const SAMPLE = 'SELECT e.name, e.department, e.salary, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department\nORDER BY e.salary DESC;';
-let editor, worker, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [];
+let editor, worker, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
@@ -164,16 +164,23 @@ async function initialize() {
     status('Opening local database…','busy');startWorker();
     const saved=await loadSaved(),transfer=saved instanceof ArrayBuffer?[saved]:[];
     await call('init',{buffer:saved||undefined,transfer});
+    try {
+      tabs=JSON.parse(localStorage.getItem(TAB_STORAGE)||'[]');
+      if(!Array.isArray(tabs))tabs=[];
+    } catch { tabs=[]; }
+    if(!tabs.length)tabs=[{id:nextTabId++,name:'query.sql',content:localStorage.getItem(QUERY)||SAMPLE}];
+    nextTabId=Math.max(1,...tabs.map(t=>Number(t.id)||0))+1;
+    activeTabId=tabs[0].id;
     editor=new EditorView({
-      doc:localStorage.getItem(QUERY)||SAMPLE,
+      doc:tabs[0].content??SAMPLE,
       extensions:[basicSetup,sql(),oneDark,EditorView.lineWrapping,EditorView.updateListener.of(u=>{
-        if(u.docChanged){try{localStorage.setItem(QUERY,u.state.doc.toString());}catch{}}
+        if(u.docChanged){const value=u.state.doc.toString();try{localStorage.setItem(QUERY,value);const active=tabs.find(t=>t.id===activeTabId);if(active){active.content=value;saveTabs();}}catch{}}
         const pos=u.state.selection.main.head, line=u.state.doc.lineAt(pos);
         $('#cursor').textContent='Ln '+line.number+', Col '+(pos-line.from+1);
         $('#status-selection').textContent=u.state.selection.main.empty?'No selection':(u.state.selection.main.to-u.state.selection.main.from)+' selected';
       })],parent:$('#editor')
     });
-    ready=true;$('#engine-label').textContent='SQLite WebAssembly · Local';$('#connection').textContent='● Local database ready';
+    ready=true;renderTabs();$('#engine-label').textContent='SQLite WebAssembly · Local';$('#connection').textContent='● Local database ready';
     status('Ready · data stored in this browser');await refreshTables();renderHistory();
     if(!saved)toast('Welcome to Terminnia. Sample database loaded.');
   }catch(e){console.error(e);$('#connection').textContent='Database unavailable';$('#startup-error').hidden=false;$('#startup-error').textContent=e.message+' Check your connection and reload.';status('Startup failed','error');}
@@ -233,8 +240,44 @@ $('#font-size').onchange=e=>{document.querySelector('.cm-editor').style.fontSize
 $('#line-wrap').onchange=e=>{const content=document.querySelector('.cm-content');if(content)content.style.whiteSpace=e.target.checked?'pre-wrap':'pre';};
 $('#zen-mode').onchange=e=>document.body.classList.toggle('zen-mode',e.target.checked);
 $('#panel-toggle').onclick=()=>{const panel=$('#output-section'),resize=$('#panel-resize');const hidden=panel.hidden;panel.hidden=!hidden;resize.hidden=!hidden;$('#panel-toggle').textContent=hidden?'⌄':'⌃';};
-$('#add-tab').onclick=()=>{if(!editor)return;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});editor.focus();$('#query-tab').querySelector('span:nth-child(2)').textContent='untitled.sql';toast('New SQL document ready. Download it to keep a copy.');};
-$('#new-query').onclick=()=>$('#add-tab').click();
+function saveTabs(){try{localStorage.setItem(TAB_STORAGE,JSON.stringify(tabs));}catch{toast('Could not save SQL tabs. Browser storage may be full.',true);}}
+function renderTabs(){
+  const strip=$('.tab-strip'), add=$('#add-tab');
+  strip.querySelectorAll('.editor-tab').forEach(n=>n.remove());
+  tabs.forEach(tab=>{
+    const item=document.createElement('div');item.className='editor-tab'+(tab.id===activeTabId?' active':'');
+    const icon=document.createElement('span');icon.className='tab-file-icon';icon.textContent='▤';
+    const name=document.createElement('span');name.textContent=tab.name;
+    const close=document.createElement('button');close.className='tab-close';close.type='button';close.textContent='×';close.title='Close tab';
+    close.onclick=e=>{e.stopPropagation();closeTab(tab.id);};
+    item.append(icon,name,close);item.onclick=()=>switchTab(tab.id);strip.insertBefore(item,add);
+  });
+}
+function switchTab(id){
+  if(id===activeTabId)return;
+  const target=tabs.find(t=>t.id===id);if(!target)return;
+  const current=tabs.find(t=>t.id===activeTabId);if(current)current.content=editor.state.doc.toString();
+  activeTabId=id;
+  editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:target.content||''}});
+  renderTabs();editor.focus();
+}
+function createTab(){
+  if(!editor)return;
+  const tab={id:nextTabId++,name:'query-'+nextTabId+'.sql',content:''};
+  const current=tabs.find(t=>t.id===activeTabId);if(current)current.content=editor.state.doc.toString();
+  tabs.push(tab);activeTabId=tab.id;saveTabs();
+  editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});
+  renderTabs();editor.focus();
+}
+function closeTab(id){
+  if(tabs.length===1){tabs[0].content='';editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});saveTabs();renderTabs();return;}
+  const index=tabs.findIndex(t=>t.id===id);if(index<0)return;
+  const wasActive=id===activeTabId;tabs=tabs.filter(t=>t.id!==id);
+  if(wasActive){const target=tabs[Math.max(0,index-1)];activeTabId=target.id;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:target.content||''}});}
+  saveTabs();renderTabs();
+}
+$('#add-tab').onclick=createTab;
+$('#new-query').onclick=createTab;
 $('#project-switcher').onclick=()=>toast('This local workspace currently contains one database project.');
 $('#panel-resize').addEventListener('pointerdown',e=>{
   const panel=$('#output-section'),workspace=$('.editor-workspace'),startY=e.clientY,startHeight=panel.getBoundingClientRect().height;
