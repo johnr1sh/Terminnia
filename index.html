@@ -11,8 +11,8 @@
 <body>
 <div class="ide-shell" id="ide-shell">
 <header class="app-header">
-  <div class="brand-area"><button class="brand-logo" aria-label="Terminnia home">t<span>.</span></button><span class="brand-name">Terminnia</span><span class="brand-divider"></span><button class="project-switcher" id="project-switcher"><span class="project-icon">▣</span><span>My Database</span><span class="chevron">⌄</span></button></div>
-  <div class="header-center"><span class="connection-led"></span><span id="connection">Connecting to local database…</span></div>
+  <div class="brand-area"><button class="brand-logo" aria-label="Terminnia home">t<span>.</span></button><span class="brand-name">Terminnia</span><span class="brand-divider"></span><button class="project-switcher" id="project-switcher" aria-label="Current workspace: My Database"><span class="project-icon">▣</span><span>My Database</span><span class="workspace-type">LOCAL</span><span class="chevron">⌄</span></button></div>
+  <div class="header-center" aria-live="polite"><span class="connection-led"></span><span id="connection">Connecting to local database…</span></div>
   <div class="header-actions"><button class="header-icon" id="import-db" title="Import database" aria-label="Import database">⇧</button><button class="header-icon" id="export-db" title="Export database" aria-label="Export database">⇩</button><span class="header-divider"></span><button class="header-icon" id="settings-toggle" title="Editor settings" aria-label="Editor settings">⚙</button><button class="avatar" title="Local workspace">J</button></div>
 </header>
 
@@ -44,6 +44,7 @@
           <div class="tree-heading subheading"><span class="tree-chevron">›</span><span class="tree-folder">▸</span><span>SQL FILES</span><button class="mini-action" id="new-query" title="New query">＋</button></div>
         </div>
       </section>
+      <section class="starter-section" id="starter-section"><div class="starter-heading">QUICK START</div><button class="starter-action" data-template="select"> <span>↗</span><span><strong>Read a table</strong><small>Start with SELECT</small></span></button><button class="starter-action" data-template="create"><span>＋</span><span><strong>Create a table</strong><small>Define your columns</small></span></button><button class="starter-action" data-template="join"><span>⤳</span><span><strong>Join tables</strong><small>Combine related data</small></span></button></section>
       <section class="history-section" id="history-section"><button class="tree-heading"><span class="tree-chevron">⌄</span><span>QUERY HISTORY</span></button><div id="history-list" class="history-list"><p class="muted small">Executed queries appear here.</p></div></section>
       <div class="sidebar-footer"><span class="privacy-icon">◈</span><span>Local workspace · Your data stays on this device</span></div>
     </div>
@@ -52,7 +53,7 @@
 
   <main class="editor-workspace">
     <div class="tab-strip">
-      <div class="editor-tab active" id="query-tab"><span class="tab-file-icon">▤</span><span>query.sql</span><span class="tab-close">×</span></div>
+      
       <button class="new-tab" id="add-tab" title="New SQL tab">＋</button>
       <div class="tab-strip-spacer"></div>
       <button class="tab-action" id="copy-sql" title="Copy SQL">▢</button><button class="tab-action" id="download-sql" title="Download SQL">⇩</button>
@@ -61,10 +62,10 @@
     <section class="code-pane">
       <div class="editor-toolbar">
         <div class="breadcrumbs"><span>My Database</span><span class="crumb-separator">›</span><span>query.sql</span></div>
-        <div class="editor-controls"><span class="shortcut-hint">⌘ ↵ Run</span><button class="tool-button" id="format">Format</button><button class="tool-button" id="clear">Clear</button><button class="run-button" id="run"><span>▶</span> Run Query</button></div>
+        <div class="editor-controls"><span class="shortcut-hint" title="Run selected SQL or the whole document">Ctrl / ⌘ + Enter</span><button class="tool-button" id="format" title="Format SQL">Format</button><button class="tool-button" id="clear" title="Clear the current SQL document">Clear</button><button class="run-button" id="run" aria-label="Run SQL query"><span>▶</span> Run</button></div>
       </div>
       <div class="editor-frame"><div id="editor" role="region" aria-label="SQL code editor"></div></div>
-      <div class="editor-footer"><span>SQL <span class="footer-dot">•</span> SQLite</span><span id="cursor">Ln 1, Col 1</span><span>UTF-8</span><span>Spaces: 2</span></div>
+      <div class="editor-footer"><span class="dialect-label">SQL <span class="footer-dot">•</span> SQLite</span><span id="draft-state" class="draft-state" aria-live="polite">Draft saved locally</span><span id="cursor">Ln 1, Col 1</span><span>UTF-8</span><span>Spaces: 2</span></div>
     </section>
 
     <div class="panel-resize" id="panel-resize" title="Drag to resize results panel"><span></span></div>
@@ -82,7 +83,7 @@
     <div id="startup-error" class="startup-error" hidden></div>
   </main>
 </div>
-<div class="settings-popover" id="settings-popover" hidden><div class="settings-title">Editor settings</div><p class="settings-help">Changes are saved on this device.</p><label>Font size <select id="font-size"><option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label><input type="checkbox" id="line-wrap" checked> Word wrap</label><label><input type="checkbox" id="zen-mode"> Zen mode</label></div>
+<div class="settings-popover" id="settings-popover" role="dialog" aria-label="Editor settings" hidden><div class="settings-title">Editor settings</div><p class="settings-help">Changes are saved on this device.</p><label>Font size <select id="font-size"><option value="12">12 px</option><option value="13" selected>13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label><input type="checkbox" id="line-wrap" checked> Word wrap</label><label><input type="checkbox" id="zen-mode"> Zen mode</label></div>
 <input id="database-file" type="file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3" hidden>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script type="module" src="./app.js"></script>
