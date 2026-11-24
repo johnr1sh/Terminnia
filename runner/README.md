@@ -28,13 +28,13 @@ The API binds to `127.0.0.1` on the host so a separately configured TLS reverse 
 ## API
 
 - `POST /api/sandboxes` creates a sandbox and returns its ID and one-time bearer capability.
-- `POST /api/sandboxes/:id/execute` accepts JSON `{"sql":"..."}`. To test account privileges, it also accepts optional `username` and `password` fields; credentials are passed only to the isolated MySQL client process and are not stored in the session.
+- `POST /api/sandboxes/:id/execute` accepts JSON `{"sql":"..."}`. To test account privileges, it also accepts optional `username` and `password` fields; credentials are written to a randomly named, mode-0600 option file inside the sandbox's temporary `/tmp` filesystem for that one execution, then deleted; they are not stored in the session or passed as Docker process arguments.
 - `GET /api/sandboxes/:id/schema` lists tables and views.
 - `POST /api/sandboxes/:id/reset` replaces the sandbox database.
 - `DELETE /api/sandboxes/:id` destroys it.
 - `GET /health` reports process health.
 
-Send the returned capability as `Authorization: Bearer ...`. Keep it in browser memory only. Never place it in a URL or logs. Send requests over HTTPS in any hosted deployment; student account passwords must not be logged or persisted. Configure exact comma-separated browser origins with `RUNNER_ALLOWED_ORIGINS`.
+Send the returned capability as `Authorization: Bearer ...`. Keep the sandbox capability in browser memory only. Never place it in a URL or logs. Send requests over HTTPS in any hosted deployment; student account passwords are used only for the requested execution and are removed from the sandbox temporary filesystem afterward. Configure exact comma-separated browser origins with `RUNNER_ALLOWED_ORIGINS`.
 
 ## Isolation and limits
 
