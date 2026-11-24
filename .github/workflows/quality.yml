@@ -104,6 +104,10 @@ jobs:
         env:
           RUNNER_URL: http://127.0.0.1:8787
         run: node tests/mysql-runner-integration.mjs
+      - name: Run complete attached-lab coursework acceptance suite
+        env:
+          RUNNER_URL: http://127.0.0.1:8787
+        run: node tests/mysql-coursework-integration.mjs
       - name: Stop runner and remove disposable sandboxes
         if: always()
         run: |
