@@ -27,9 +27,15 @@ The implementation plan is to retain Local SQLite as an offline mode and add a s
 
 ## Run locally
 
-Serve this directory with any static HTTP server and open its URL. Do not open `index.html` directly using a `file://` URL because browser module imports, Web Workers, and WebAssembly require a secure or local HTTP origin.
+Use Node.js 22 or newer:
 
-The editor loads CodeMirror modules and the SQLite WebAssembly runtime from pinned public CDN URLs. The first load therefore requires an internet connection. After the runtime has loaded, SQL execution and database storage happen locally in the browser.
+```sh
+npm ci
+npm run build
+python3 -m http.server 4173 --directory dist
+```
+
+Open `http://localhost:4173`. The Vite production build bundles CodeMirror, SQL formatting, SQL.js, and its WebAssembly runtime locally. The first page load still requires the application assets to be downloaded, but SQL execution in Local SQLite happens in the browser.
 
 ## SQL compatibility
 
