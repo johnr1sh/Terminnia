@@ -1,10 +1,8 @@
 import http from 'node:http';
 import { spawn, execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { splitMysqlScript } from '../database/mysql-script.mjs';
 
-const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.PORT || 8787);
 const MYSQL_IMAGE = process.env.MYSQL_IMAGE || 'mysql:8.4';
 const IDLE_TTL_MS = 20 * 60 * 1000;
@@ -101,7 +99,7 @@ async function createContainer(session) {
     '--network', 'none',
     '--memory', '512m', '--memory-swap', '512m', '--cpus', '1',
     '--pids-limit', '128', '--ulimit', 'nofile=4096:4096', '--read-only',
-    '--log-opt', 'max-size=5m', '--log-opt', 'max-file=1',
+    '--log-driver', 'json-file', '--log-opt', 'max-size=5m', '--log-opt', 'max-file=1',
     '--tmpfs', '/var/lib/mysql:rw,nosuid,nodev,size=256m',
     '--tmpfs', '/var/run/mysqld:rw,nosuid,nodev,size=16m',
     '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m',
