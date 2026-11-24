@@ -3,12 +3,13 @@ import { EditorView } from '@codemirror/view';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { format as formatSQL } from 'sql-formatter';
+import { SQLiteAdapter } from './database/sqlite-adapter.mjs';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
 const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1', TAB_STORAGE = 'terminnia-sql-tabs-v1';
 const SAMPLE = 'SELECT e.name, e.department, e.salary, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department\nORDER BY e.salary DESC;';
-let editor, worker, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
+let editor, worker, dbAdapter, seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
@@ -67,7 +68,8 @@ async function recoverWorker(reason) {
     startWorker();
     const saved=await loadSaved();
     const transfer=saved instanceof ArrayBuffer?[saved]:[];
-    const initialized=await call('init',{buffer:saved||undefined,transfer});
+    dbAdapter ??= new SQLiteAdapter({ request: call });
+    const initialized=await dbAdapter.connect({buffer:saved||undefined,transfer});
     if(!initialized.ok)throw new Error(initialized.error?.message||'Database recovery failed.');
     ready=true;
     $('#startup-error').hidden=true;
@@ -147,15 +149,15 @@ function renderResultTabs() {
   results.forEach((r,i)=>{const b=document.createElement('button');b.className='result-tab'+(i===currentResultIndex?' active':'');b.textContent='Result '+(i+1)+' ('+(r.rowCount??r.values.length)+')';b.onclick=()=>{renderResult(r,i);host.querySelectorAll('button').forEach((x,j)=>x.classList.toggle('active',i===j));};host.append(b);});
 }
 async function refreshTables() {
-  const r=await call('tables');if(!r.ok)throw new Error(r.error?.message||'Cannot read tables.');
-  const host=$('#table-list');host.replaceChildren();$('#table-total').textContent=String(r.tables.length);
-  if(!r.tables.length){const p=document.createElement('p');p.className='muted small';p.textContent='No tables yet. Run CREATE TABLE.';host.append(p);return;}
-  const views=r.tables.filter(([,type])=>type==='view'), tables=r.tables.filter(([,type])=>type!=='view');
-  $('#views-empty').textContent=views.length?views.map(([name])=>name).join(' · '):'No views';
-  r.tables.forEach(([name,type])=>{const b=document.createElement('button');b.className='table-item'+(name===tableName?' active':'');b.textContent=(type==='view'?'◇ ':'▦ ')+name;b.onclick=()=>browse(name);host.append(b);});
+  const objects=await dbAdapter.listObjects(['table','view']);
+  const host=$('#table-list');host.replaceChildren();$('#table-total').textContent=String(objects.length);
+  if(!objects.length){const p=document.createElement('p');p.className='muted small';p.textContent='No tables yet. Run CREATE TABLE.';host.append(p);$('#views-empty').textContent='No views';return;}
+  const views=objects.filter(object=>object.type==='view');
+  $('#views-empty').textContent=views.length?views.map(object=>object.name).join(' · '):'No views';
+  objects.forEach(({name,type})=>{const b=document.createElement('button');b.className='table-item'+(name===tableName?' active':'');b.textContent=(type==='view'?'◇ ':'▦ ')+name;b.onclick=()=>browse(name);host.append(b);});
 }
 async function browse(name) {
-  tableName=name;await refreshTables();const s=await call('schema',{name});
+  tableName=name;await refreshTables();const s=await dbAdapter.describeObject(name);
   const host=$('#schema-content');host.replaceChildren();
   const t=document.createElement('table');t.className='schema-table';
   const h=document.createElement('thead');h.innerHTML='<tr><th>Column</th><th>Type</th><th>Null</th><th>Key</th></tr>';
@@ -185,7 +187,7 @@ async function run() {
   if(!query.trim())return;
   $('#run').disabled=true;$('#run').textContent='Running…';status('Executing SQL…','busy');
   try{
-    const r=await call('exec',{sql:query});
+    const r=await dbAdapter.execute(query);
     results=r.results||[];currentResultIndex=0;
     if(results.length){renderResult(results[0]);renderResultTabs();}
     else{$('#result-content').textContent='Statement executed. No result set.';$('#row-count').textContent='0';$('#csv').disabled=true;$('#result-tabs').hidden=true;columns=[];rows=[];}
@@ -237,7 +239,8 @@ async function initialize() {
   try{
     status('Opening local database…','busy');startWorker();
     const saved=await loadSaved(),transfer=saved instanceof ArrayBuffer?[saved]:[];
-    await call('init',{buffer:saved||undefined,transfer});
+    dbAdapter ??= new SQLiteAdapter({ request: call });
+    await dbAdapter.connect({buffer:saved||undefined,transfer});
     try {
       const stored=JSON.parse(localStorage.getItem(TAB_STORAGE)||'[]');
       if(Array.isArray(stored)){
