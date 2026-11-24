@@ -105,4 +105,6 @@ jobs:
         run: node tests/mysql-runner-integration.mjs
       - name: Stop runner and remove disposable sandboxes
         if: always()
-        run: docker rm -f terminnia-runner-ci || true
+        run: |
+          docker rm -f terminnia-runner-ci || true
+          docker ps -aq --filter label=app=terminnia-mysql-runner | xargs -r docker rm -f
