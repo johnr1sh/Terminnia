@@ -92,6 +92,7 @@ jobs:
           docker run -d --name terminnia-runner-ci -p 8787:8787 \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e NODE_ENV=development \
+            -e RUNNER_ALLOWED_ORIGINS=http://127.0.0.1:4173 \
             terminnia-runner-ci
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8787/health > /dev/null; then exit 0; fi
