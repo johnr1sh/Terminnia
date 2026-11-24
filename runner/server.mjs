@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { spawn, execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { splitMysqlScript } from '../database/mysql-script.mjs';
 
