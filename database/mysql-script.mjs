@@ -61,7 +61,7 @@ export function splitMysqlScript(source) {
       }
       if (executableComment) buffer += char;
       else if (char === '\n') {
-        buffer += '\\n';
+        buffer += '\n';
         lineStart = true;
       }
       i++;
