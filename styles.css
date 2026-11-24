@@ -17,3 +17,112 @@ body.zen-mode .activity-bar,body.zen-mode .sidebar,body.zen-mode .app-header,bod
 @media(max-width:760px){.work-area:has(.sidebar.collapsed){grid-template-columns:36px minmax(0,1fr)}}
 
 #editor.no-wrap .cm-line{white-space:pre!important}
+
+
+/* Product-quality interaction and responsive refinements */
+:root{--focus-ring:#a9bcff;--surface-hover:#ffffff0b}
+button,input,select{ -webkit-tap-highlight-color:transparent }
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+button:disabled{cursor:not-allowed}
+.activity-button,.header-icon,.tab-action,.new-tab,.panel-icon,.sidebar-tools button{min-width:32px;min-height:32px}
+.editor-tab{overflow:hidden}.editor-tab>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-search-wrap input{min-height:40px;font-size:13px}
+.tree-heading,.table-item,.history-item{min-height:34px;font-size:11px}
+.table-item{height:auto;padding-top:7px;padding-bottom:7px}
+.panel-tab{min-height:36px;font-size:11px}
+.result-tab{min-height:32px;font-size:10px}
+.result-table th,.schema-table th{font-size:11px}
+.result-table td,.schema-table td{font-size:11px}
+.output-content:focus-visible{outline:2px solid var(--focus-ring);outline-offset:-2px}
+.settings-help{margin:-5px 0 8px;color:#929db2;font-size:10px;line-height:1.5}
+.drawer-backdrop{display:block;position:fixed;inset:44px 0 22px 36px;z-index:14;border:0;background:#080b14a8;backdrop-filter:blur(2px)}
+.drawer-backdrop[hidden]{display:none}
+.panel-resize{touch-action:none}
+.statusbar{padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(min-width:761px) and (max-width:1050px){
+  .work-area{grid-template-columns:42px 205px minmax(0,1fr)}
+  .shortcut-hint{display:none}
+  .editor-toolbar{padding-inline:8px}
+}
+@media(max-width:760px){
+  html,body{height:100%;overscroll-behavior:none}
+  .ide-shell{height:100dvh;min-height:0}
+  .app-header{height:48px;padding-left:9px;padding-right:8px;gap:5px}
+  .brand-logo{width:30px;height:30px;flex:none}
+  .brand-name{display:inline;font-size:12px}
+  .project-switcher{max-width:124px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+  .header-center{display:flex;max-width:100px;min-width:0;font-size:9px;gap:5px}
+  .header-center #connection{overflow:hidden;text-overflow:ellipsis}
+  .header-actions{flex:none}
+  .header-icon{width:34px;height:36px}
+  .avatar{display:none}
+  .work-area{grid-template-columns:42px minmax(0,1fr);min-height:0}
+  .activity-bar{width:42px;padding-top:7px}
+  .activity-button{width:40px;min-height:44px;font-size:19px}
+  .sidebar{top:48px;left:42px;bottom:22px;width:min(300px,calc(100vw - 58px));max-width:calc(100vw - 58px);border-right:1px solid #59627a}
+  .sidebar-title{height:46px;padding-inline:14px}
+  .sidebar-tools button{width:36px;height:36px}
+  .sidebar-scroll{padding-bottom:env(safe-area-inset-bottom,0px)}
+  .editor-workspace{min-height:0}
+  .tab-strip{height:38px;overflow-x:auto;overflow-y:hidden}
+  .editor-tab{min-width:112px;max-width:170px}
+  .new-tab,.tab-action{width:38px;min-width:38px}
+  .editor-toolbar{height:48px;min-height:48px;padding:0 8px;gap:6px}
+  .breadcrumbs{display:none}
+  .editor-controls{width:100%;justify-content:flex-end;gap:5px}
+  .tool-button{min-height:38px;padding:0 10px;font-size:11px}
+  .run-button{min-height:40px;padding:0 14px;font-size:12px;border-radius:7px;white-space:nowrap}
+  .editor-frame{min-height:0}
+  .cm-editor{font-size:13px;line-height:1.65}
+  .cm-content{padding:13px 10px!important}
+  .editor-footer{height:26px;gap:10px;font-size:9px;padding-inline:9px}
+  .panel-resize{height:8px;min-height:8px}
+  .output-section{height:38%;min-height:150px;max-height:58%;border-top:1px solid #48516a}
+  .output-toolbar{height:44px;min-height:44px;padding:0 8px;gap:4px}
+  .panel-tabs{gap:12px}
+  .panel-tab{font-size:10px;min-height:42px}
+  .output-actions{gap:4px}
+  .export-csv{min-height:34px;font-size:9px;padding:0 8px;white-space:nowrap}
+  .panel-icon{min-width:34px;min-height:38px}
+  .duration{display:block;font-size:9px;white-space:nowrap}
+  .result-tabs{padding:7px 8px}
+  .result-table{font-size:11px}
+  .result-table th,.result-table td{padding:10px 12px;max-width:220px}
+  .schema-table th,.schema-table td{padding:10px 12px}
+  .welcome-state{padding:12px;text-align:center}
+  .statusbar{height:25px;min-height:25px;font-size:9px}
+  .status-right{gap:8px}
+  .settings-popover{top:54px;right:8px;width:min(280px,calc(100vw - 16px));padding:15px}
+  .settings-popover label{min-height:42px;font-size:12px}
+  .settings-popover select{min-height:34px;font-size:12px}
+  .startup-error{bottom:32px;left:8px;right:8px;font-size:11px}
+  .toast{bottom:34px;left:10px;right:10px;max-width:none;font-size:11px;padding:12px 14px}
+}
+@media(max-width:390px){
+  .brand-name{display:none}
+  .project-switcher{max-width:115px}
+  .header-center{max-width:88px}
+  .header-icon{width:31px}
+  .editor-controls{gap:3px}
+  .tool-button{padding-inline:7px}
+  .run-button{padding-inline:10px}
+  .panel-tabs{gap:8px}
+  .duration{display:none}
+  .status-right span:first-child{display:none}
+}
+@media(max-height:620px) and (max-width:760px){
+  .output-section{height:34%;min-height:125px}
+  .editor-footer{height:22px}
+  .statusbar{height:22px;min-height:22px}
+}
+@media(orientation:landscape) and (max-height:520px) and (max-width:900px){
+  .app-header{height:40px}
+  .sidebar{top:40px}
+  .editor-toolbar{height:38px;min-height:38px}
+  .output-section{height:42%;min-height:110px}
+  .output-toolbar{height:34px;min-height:34px}
+  .statusbar{height:20px;min-height:20px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
