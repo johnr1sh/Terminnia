@@ -11,7 +11,7 @@ const MAX_SQL_BYTES = 64 * 1024;
 const MAX_BODY_BYTES = 72 * 1024;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 const MAX_ROWS = 5000;
-const MAX_ACTIVE_SESSIONS = 8;
+const MAX_ACTIVE_SESSIONS = 4;
 const STARTUP_TIMEOUT_MS = 45_000;
 const QUERY_TIMEOUT_MS = 8_000;
 const sessions = new Map();
@@ -97,7 +97,7 @@ async function createContainer(session) {
     '--label', 'app=terminnia-mysql-runner',
     '--label', 'terminnia.session=' + session.id,
     '--network', 'none',
-    '--memory', '512m', '--memory-swap', '512m', '--cpus', '1',
+    '--memory', '768m', '--memory-swap', '768m', '--cpus', '1',
     '--pids-limit', '128', '--ulimit', 'nofile=4096:4096', '--read-only',
     '--log-driver', 'json-file', '--log-opt', 'max-size=5m', '--log-opt', 'max-file=1',
     '--tmpfs', '/var/lib/mysql:rw,nosuid,nodev,size=256m',
@@ -109,7 +109,10 @@ async function createContainer(session) {
     '--security-opt', 'no-new-privileges',
     '--env', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes',
     '--env', 'MYSQL_ROOT_HOST=localhost',
-    MYSQL_IMAGE
+    MYSQL_IMAGE,
+    '--innodb-buffer-pool-size=96M', '--performance-schema=OFF',
+    '--max-connections=20', '--table-open-cache=64',
+    '--tmp-table-size=16M', '--max-heap-table-size=16M'
   ];
   const id = await docker(args, { timeout: 30_000, maxOutput: 32_000 });
   session.containerId = id;
