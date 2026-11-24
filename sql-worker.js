@@ -1,5 +1,7 @@
 /* Terminnia database worker. All SQLite work stays off the UI thread. */
-'use strict';
+import initSqlJs from 'sql.js';
+import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
+
 
 const VERSION = '1.15.2';
 let SQL = null;
@@ -44,24 +46,8 @@ function metadataChanged(next, previous) {
     next.applicationId !== previous.applicationId;
 }
 
-const CDN_BASES = [
-  'https://cdn.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/',
-  'https://unpkg.com/sql.js@' + VERSION + '/dist/',
-  'https://fastly.jsdelivr.net/npm/sql.js@' + VERSION + '/dist/'
-];
-
 async function loadSqlJs() {
-  const failures = [];
-  for (const base of CDN_BASES) {
-    try {
-      if (typeof self.initSqlJs !== 'function') importScripts(base + 'sql-wasm.js');
-      if (typeof self.initSqlJs !== 'function') throw new Error('SQL.js loader did not expose initSqlJs.');
-      return await self.initSqlJs({ locateFile: (file) => base + file });
-    } catch (error) {
-      failures.push(base + ': ' + (error?.message || String(error)));
-    }
-  }
-  throw new Error('SQLite WebAssembly could not be initialized from the available CDNs. ' + failures.join(' | '));
+  return initSqlJs({ locateFile: () => wasmUrl });
 }
 
 function normalizeResults(results) {
