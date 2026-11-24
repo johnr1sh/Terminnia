@@ -256,7 +256,6 @@ test('workspace remains usable at narrow phone width', async ({ page }) => {
 
 
 test('database engine menu explains the local and hosted MySQL modes', async ({ page }) => {
-  await page.goto('/');
   await expect(page.locator('#project-switcher')).toBeVisible();
   await page.locator('#project-switcher').click();
   await expect(page.locator('#workspace-menu')).toBeVisible();
