@@ -186,7 +186,8 @@ async function createSession() {
     containerName: 'terminnia-mysql-' + id, containerId: null,
     createdAt: Date.now(), lastUsedAt: Date.now()
   };
-  await createContainer(session);
+  try { await createContainer(session); }
+  catch (error) { await removeContainer(session.containerId); throw error; }
   sessions.set(id, session);
   return { id, token, expiresInSeconds: Math.floor(IDLE_TTL_MS / 1000), maxLifetimeSeconds: Math.floor(MAX_LIFETIME_MS / 1000), engine: 'MySQL 8.4' };
   } finally { provisioning--; }
@@ -260,6 +261,10 @@ async function reapOrphanedContainers() {
   const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
   if (ids) await docker(['rm', '-f', ...ids.split(/\\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
 }
+async function reapOrphanedContainers() {
+  const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
+  if (ids) await docker(['rm', '-f', ...ids.split(/\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
+}
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -271,6 +276,11 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 if (process.argv[1] && new URL(import.meta.url).pathname === process.argv[1]) {
-  server.listen(PORT, '0.0.0.0', () => process.stdout.write('Terminnia MySQL runner listening on ' + PORT + '\n'));
+  reapOrphanedContainers().then(() => {
+    server.listen(PORT, '0.0.0.0', () => process.stdout.write('Terminnia MySQL runner listening on ' + PORT + '\n'));
+  }).catch(error => {
+    process.stderr.write('Runner startup blocked: Docker cleanup failed: ' + error.message + '\n');
+    process.exitCode = 1;
+  });
 }
 export { server, parseMysqlOutput, rateLimit };
