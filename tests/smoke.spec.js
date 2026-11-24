@@ -105,3 +105,19 @@ test('recovers from malformed persisted tab and history data', async ({ page }) 
   await expect(page.locator('.cm-content')).toContainText('SELECT 2 AS restored');
   await expect(page.locator('#history-list')).toContainText('Executed queries appear here.');
 });
+
+test('persists explicit transactions after COMMIT', async ({ page }) => {
+  await replaceSql(page, "BEGIN; INSERT INTO employees(name, department, salary) VALUES ('Transaction Check', 'Engineering', 777);");
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#message-content')).toContainText(/Save will complete after the transaction is committed/i);
+
+  await replaceSql(page, 'COMMIT;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#message-content')).toContainText(/Database snapshot saved locally/i);
+
+  await page.reload();
+  await expect(page.locator('#status')).toContainText('Ready', { timeout: 30000 });
+  await replaceSql(page, "SELECT name FROM employees WHERE name = 'Transaction Check';");
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('Transaction Check');
+});
