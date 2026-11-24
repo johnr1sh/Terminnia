@@ -11,7 +11,7 @@ const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
 const QUERY = 'terminnia-query-v2', HISTORY = 'terminnia-history-v1', TAB_STORAGE = 'terminnia-sql-tabs-v1';
 const SAMPLE = 'SELECT e.name, e.department, e.salary, d.budget\nFROM employees AS e\nJOIN departments AS d ON d.name = e.department\nORDER BY e.salary DESC;';
-let editor, worker, dbAdapter, localAdapter, mysqlAdapter, activeEngine = 'sqlite', seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
+let editor, worker, dbAdapter, localAdapter, mysqlAdapter, mysqlCredentials = null, activeEngine = 'sqlite', seq = 0, ready = false, tableName = null, results = [], currentResultIndex = 0, columns = [], rows = [], tabs = [], activeTabId = null, nextTabId = 1;
 const pending = new Map();
 let saveQueue = Promise.resolve();
 
@@ -193,7 +193,8 @@ async function run() {
   if(!query.trim())return;
   $('#run').disabled=true;$('#run').textContent='Running…';status('Executing SQL…','busy');
   try{
-    const r=await dbAdapter.execute(query);
+    const executionOptions = activeEngine === 'mysql' && mysqlCredentials ? mysqlCredentials : {};
+    const r=await dbAdapter.execute(query, executionOptions);
     results=r.results||[];currentResultIndex=0;
     if(results.length){renderResult(results[0]);renderResultTabs();}
     else{$('#result-content').textContent='Statement executed. No result set.';$('#row-count').textContent='0';$('#csv').disabled=true;$('#result-tabs').hidden=true;columns=[];rows=[];}
@@ -299,7 +300,7 @@ $('#copy-sql').onclick=async()=>{try{await navigator.clipboard.writeText(editor.
 $('#new-table').onclick=()=>{editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:'CREATE TABLE new_table (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL\n);'}});editor.focus();};
 $('#refresh-tables').onclick=()=>refreshTables().catch(e=>toast(e.message,true));
 document.querySelectorAll('[data-panel-tab]').forEach(b=>b.onclick=()=>switchPanel(b.dataset.panelTab));
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();run();}if(e.key==='F5'){e.preventDefault();run();}if(e.key==='Escape'){closeMobileSidebar();$('#settings-popover').hidden=true;}});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();run();}if(e.key==='F5'){e.preventDefault();run();}if(e.key==='Escape'){closeMobileSidebar();$('#settings-popover').hidden=true;$('#run-as-popover').hidden=true;$('#run-as-toggle').setAttribute('aria-expanded','false');}});
 initialize();
 
 
@@ -420,6 +421,8 @@ function updateEngineChrome() {
   $('#dialect-name').textContent = mysql ? 'MySQL 8.4' : 'SQLite';
   $('#import-db').disabled = mysql;
   $('#export-db').disabled = mysql;
+  $('#run-as-toggle').hidden = !mysql;
+  $('#run-as-toggle').textContent = 'Run as: ' + (mysqlCredentials?.username || 'root');
   $('#sqlite-check').textContent = mysql ? '' : '✓';
   $('#mysql-check').textContent = mysql ? '✓' : '';
   document.querySelector('[data-engine="sqlite"]').setAttribute('aria-current', String(!mysql));
@@ -443,6 +446,7 @@ async function switchToMysql() {
   try {
     await adapter.connect();
     mysqlAdapter = adapter;
+    mysqlCredentials = null;
     dbAdapter = adapter;
     activeEngine = 'mysql';
     ready = true;
@@ -456,6 +460,7 @@ async function switchToMysql() {
   } catch (error) {
     await adapter.disconnect().catch(() => {});
     mysqlAdapter = null;
+    mysqlCredentials = null;
     activeEngine = 'sqlite';
     dbAdapter = localAdapter;
     ready = true;
@@ -473,6 +478,9 @@ async function switchToSqlite() {
     await old.disconnect().catch(error => toast('MySQL sandbox cleanup will finish automatically: ' + error.message, true));
   }
   dbAdapter = localAdapter;
+  mysqlCredentials = null;
+  $('#run-as-popover').hidden = true;
+  $('#run-as-toggle').setAttribute('aria-expanded', 'false');
   activeEngine = 'sqlite';
   ready = Boolean(localAdapter);
   tableName = null;
@@ -487,6 +495,35 @@ $('#project-switcher').onclick=()=>{
   $('#project-switcher').setAttribute('aria-expanded', String(!menu.hidden));
   updateEngineChrome();
 };
+$('#run-as-toggle').onclick=()=>{
+  const popover=$('#run-as-popover');
+  popover.hidden=!popover.hidden;
+  $('#run-as-toggle').setAttribute('aria-expanded',String(!popover.hidden));
+  if(!popover.hidden)$('#run-as-username').focus();
+};
+$('#run-as-apply').onclick=()=>{
+  const username=$('#run-as-username').value.trim();
+  const password=$('#run-as-password').value;
+  if(!/^[A-Za-z0-9_.$-]{1,80}$/.test(username))return toast('Enter a valid MySQL username.',true);
+  if(!password)return toast('Enter the account password.',true);
+  mysqlCredentials={username,password};
+  $('#run-as-password').value='';
+  $('#run-as-popover').hidden=true;
+  $('#run-as-toggle').setAttribute('aria-expanded','false');
+  updateEngineChrome();
+  $('#run-as-note').textContent='SQL will now execute as '+username+'. Credentials are held in memory only.';
+  toast('Execution account changed to '+username+'.');
+};
+$('#run-as-root').onclick=()=>{
+  mysqlCredentials=null;
+  $('#run-as-username').value='';
+  $('#run-as-password').value='';
+  $('#run-as-popover').hidden=true;
+  $('#run-as-toggle').setAttribute('aria-expanded','false');
+  updateEngineChrome();
+  $('#run-as-note').textContent='SQL will execute as the sandbox administrator.';
+  toast('Execution account changed to root.');
+};
 $('#workspace-menu').addEventListener('click',event=>{
   const choice=event.target.closest('[data-engine]');
   if(!choice)return;
@@ -499,4 +536,4 @@ $('#panel-resize').addEventListener('pointerdown',e=>{
   const stop=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);};
   window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop);
 });
-document.addEventListener('click',e=>{if(!e.target.closest('#settings-popover')&&!e.target.closest('#settings-toggle')&&!e.target.closest('[data-activity="settings"]'))$('#settings-popover').hidden=true;if(!e.target.closest('#workspace-menu')&&!e.target.closest('#project-switcher')){$('#workspace-menu').hidden=true;$('#project-switcher').setAttribute('aria-expanded','false');}});
+document.addEventListener('click',e=>{if(!e.target.closest('#run-as-popover')&&!e.target.closest('#run-as-toggle')){$('#run-as-popover').hidden=true;$('#run-as-toggle').setAttribute('aria-expanded','false');}if(!e.target.closest('#settings-popover')&&!e.target.closest('#settings-toggle')&&!e.target.closest('[data-activity="settings"]'))$('#settings-popover').hidden=true;if(!e.target.closest('#workspace-menu')&&!e.target.closest('#project-switcher')){$('#workspace-menu').hidden=true;$('#project-switcher').setAttribute('aria-expanded','false');}});
