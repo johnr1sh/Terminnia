@@ -356,8 +356,8 @@ function renderTabs(){
     const item=document.createElement('div');item.className='editor-tab'+(tab.id===activeTabId?' active':'');item.setAttribute('role','tab');item.setAttribute('tabindex',tab.id===activeTabId?'0':'-1');item.setAttribute('aria-selected',String(tab.id===activeTabId));item.setAttribute('aria-label',tab.name);
     const icon=document.createElement('span');icon.className='tab-file-icon';icon.textContent='▤';
     const name=document.createElement('span');name.textContent=tab.name;
-    const close=document.createElement('button');close.className='tab-close';close.type='button';close.textContent='×';close.title='Close tab';
-    close.setAttribute('aria-label','Close '+tab.name);close.onclick=e=>{e.stopPropagation();closeTab(tab.id);};
+    const close=document.createElement('span');close.className='tab-close';close.setAttribute('role','button');close.setAttribute('tabindex','0');close.textContent='×';close.title='Close tab';
+    close.setAttribute('aria-label','Close '+tab.name);close.onclick=e=>{e.stopPropagation();closeTab(tab.id);};close.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();closeTab(tab.id);}};
     item.append(icon,name,close);item.onclick=()=>switchTab(tab.id);item.onkeydown=e=>{if(e.target===close)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();switchTab(tab.id);}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const index=tabs.findIndex(t=>t.id===tab.id),next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];switchTab(next.id);strip.querySelectorAll('[role=tab]')[tabs.findIndex(t=>t.id===next.id)]?.focus();}};strip.insertBefore(item,add);
   });
 }
