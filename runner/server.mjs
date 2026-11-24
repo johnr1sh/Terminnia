@@ -127,11 +127,11 @@ async function createContainer(session) {
   }
   if (!ready) {
     const logs = await docker(['logs', id], { timeout: 5_000, maxOutput: 24_000 }).catch(error => 'Unable to read MySQL container logs: ' + error.message);
-    throw new Error('The isolated MySQL server did not become ready in time. ' + (lastError?.message || '') + '\\n' + logs);
+    throw new Error('The isolated MySQL server did not become ready in time. ' + (lastError?.message || '') + '\n' + logs);
   }
   try {
     await docker(['exec', '-i', id, 'mysql', '--protocol=socket', '-uroot'], {
-      input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\\nFLUSH PRIVILEGES;\\n",
+      input: "ALTER USER 'root'@'localhost' IDENTIFIED BY '" + session.dbPassword + "';\nFLUSH PRIVILEGES;\n",
       timeout: 8_000, maxOutput: 8_000
     });
   } catch (error) {
