@@ -237,7 +237,7 @@ $('#tables-tree-toggle').onclick=()=>{$('#table-list').hidden=!$('#table-list').
 $('#views-tree-toggle').onclick=()=>{$('#views-empty').hidden=!$('#views-empty').hidden;};
 $('#settings-toggle').onclick=()=>{$('#settings-popover').hidden=!$('#settings-popover').hidden;};
 $('#font-size').onchange=e=>{document.querySelector('.cm-editor').style.fontSize=e.target.value+'px';};
-$('#line-wrap').onchange=e=>{const content=document.querySelector('.cm-content');if(content)content.style.whiteSpace=e.target.checked?'pre-wrap':'pre';};
+$('#line-wrap').onchange=e=>$('#editor').classList.toggle('no-wrap',!e.target.checked);
 $('#zen-mode').onchange=e=>document.body.classList.toggle('zen-mode',e.target.checked);
 $('#panel-toggle').onclick=()=>{const panel=$('#output-section'),resize=$('#panel-resize');const hidden=panel.hidden;panel.hidden=!hidden;resize.hidden=!hidden;$('#panel-toggle').textContent=hidden?'⌄':'⌃';};
 function saveTabs(){try{localStorage.setItem(TAB_STORAGE,JSON.stringify(tabs));}catch{toast('Could not save SQL tabs. Browser storage may be full.',true);}}
