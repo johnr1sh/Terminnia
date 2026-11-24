@@ -168,7 +168,11 @@ function remember(text) {
   try{const old=JSON.parse(localStorage.getItem(HISTORY)||'[]');const list=[text,...old.filter(x=>x!==text)].slice(0,30);localStorage.setItem(HISTORY,JSON.stringify(list));renderHistory();}catch{}
 }
 function renderHistory() {
-  let list=[];try{list=JSON.parse(localStorage.getItem(HISTORY)||'[]');}catch{}
+  let list=[];
+  try{
+    const stored=JSON.parse(localStorage.getItem(HISTORY)||'[]');
+    if(Array.isArray(stored))list=stored.filter(q=>typeof q==='string').slice(0,30);
+  }catch{}
   const host=$('#history-list');host.replaceChildren();
   if(!list.length){host.textContent='Executed queries appear here.';return;}
   list.forEach(q=>{const b=document.createElement('button');b.className='history-item';b.textContent=q.replace(/\s+/g,' ').slice(0,90);b.title=q;b.onclick=()=>editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:q}});host.append(b);});
@@ -233,11 +237,21 @@ async function initialize() {
     const saved=await loadSaved(),transfer=saved instanceof ArrayBuffer?[saved]:[];
     await call('init',{buffer:saved||undefined,transfer});
     try {
-      tabs=JSON.parse(localStorage.getItem(TAB_STORAGE)||'[]');
-      if(!Array.isArray(tabs))tabs=[];
+      const stored=JSON.parse(localStorage.getItem(TAB_STORAGE)||'[]');
+      if(Array.isArray(stored)){
+        const seen=new Set();
+        tabs=stored.filter(tab=>{
+          if(!tab||typeof tab!=='object')return false;
+          const id=Number(tab.id);
+          if(!Number.isSafeInteger(id)||id<1||seen.has(id))return false;
+          if(typeof tab.name!=='string'||typeof tab.content!=='string')return false;
+          seen.add(id);
+          return true;
+        }).map(tab=>({id:Number(tab.id),name:tab.name.slice(0,120)||'query.sql',content:tab.content}));
+      }
     } catch { tabs=[]; }
     if(!tabs.length)tabs=[{id:nextTabId++,name:'query.sql',content:localStorage.getItem(QUERY)||SAMPLE}];
-    nextTabId=Math.max(1,...tabs.map(t=>Number(t.id)||0))+1;
+    nextTabId=Math.max(1,...tabs.map(t=>t.id))+1;
     activeTabId=tabs[0].id;
     editor=new EditorView({
       doc:tabs[0].content??SAMPLE,
