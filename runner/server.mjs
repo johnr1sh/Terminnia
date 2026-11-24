@@ -126,7 +126,17 @@ async function createContainer(session) {
 }
 function decodeCell(value) {
   if (value === '\\N') return null;
-  return value.replace(/\\\\/g, '\\').replace(/\\t/g, '\t').replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+  let decoded = '';
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] !== '\\' || i + 1 >= value.length) {
+      decoded += value[i];
+      continue;
+    }
+    const next = value[++i];
+    const escapes = { '0': '\0', b: '\b', t: '\t', n: '\n', r: '\r', Z: '\x1a', '\\': '\\' };
+    decoded += Object.hasOwn(escapes, next) ? escapes[next] : next;
+  }
+  return decoded;
 }
 function parseMysqlOutput(output) {
   if (!output.trim()) return [];
