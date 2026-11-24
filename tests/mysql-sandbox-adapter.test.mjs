@@ -108,3 +108,9 @@ test('includes MySQL server diagnostics for syntax and permission errors', async
   await adapter.connect();
   await assert.rejects(() => adapter.execute('SELECT * FROM secret_table'), /SELECT command denied/);
 });
+
+
+test('requires HTTPS for non-local MySQL runner endpoints', () => {
+  assert.throws(() => new MysqlSandboxAdapter({ baseUrl: 'http://runner.example.test' }), /must use HTTPS/);
+  assert.doesNotThrow(() => new MysqlSandboxAdapter({ baseUrl: 'http://127.0.0.1:8787' }));
+});
