@@ -189,7 +189,7 @@ async function run() {
     else{$('#result-content').textContent='Statement executed. No result set.';$('#row-count').textContent='0';$('#csv').disabled=true;$('#result-tabs').hidden=true;columns=[];rows=[];}
     if(r.ok){
       await refreshTables();remember(query);$('#duration').textContent=(r.durationMs||0).toFixed(1)+' ms';
-      message('Query completed successfully.\nResult sets: '+results.length+'\nRows changed: '+r.rowsChanged+'\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\nSave will complete after the transaction is committed.':'\nDatabase snapshot saved locally.'));
+      message('Query completed successfully.\nResult sets: '+results.length+'\nRows changed: '+r.rowsChanged+'\nExecution: '+(r.durationMs||0).toFixed(2)+' ms'+(r.snapshotDeferred?'\nSave will complete after the transaction is committed.':r.snapshotSaved?'\nDatabase snapshot saved locally.':'\nNo database changes; the existing local snapshot remains current.'));
       switchPanel(results.length?'results':'messages');status('Ready · local database saved');
     }else{message(r.error?.message||'SQL execution failed.',true);$('#duration').textContent='Failed';status('SQL execution failed','error');}
   }catch(e){message(e.message,true);status('Database operation failed','error');toast(e.message,true);}
