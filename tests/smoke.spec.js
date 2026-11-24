@@ -252,7 +252,11 @@ test('workspace remains usable at narrow phone width', async ({ page }) => {
     viewport: document.documentElement.clientWidth,
     page: document.documentElement.scrollWidth
   }));
-  expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
+  const overflowers = await page.evaluate(() => Array.from(document.querySelectorAll('body *')).map(node => {
+    const rect = node.getBoundingClientRect();
+    return { tag: node.tagName, id: node.id, className: typeof node.className === 'string' ? node.className : '', left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) };
+  }).filter(item => item.right > window.innerWidth + 1 || item.left < -1).sort((a,b) => b.right-a.right).slice(0,15));
+  expect(dimensions.page, JSON.stringify(overflowers)).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
 
 
