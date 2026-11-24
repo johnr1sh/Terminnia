@@ -119,7 +119,7 @@ async function run() {
   $('#run').disabled=true;$('#run').textContent='Running…';status('Executing SQL…','busy');
   try{
     const r=await call('exec',{sql:query});
-    results=r.results||[];
+    results=r.results||[];currentResultIndex=0;
     if(results.length){renderResult(results[0]);renderResultTabs();}
     else{$('#result-content').textContent='Statement executed. No result set.';$('#row-count').textContent='0';$('#csv').disabled=true;$('#result-tabs').hidden=true;columns=[];rows=[];}
     if(r.ok){
