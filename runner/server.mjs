@@ -38,13 +38,16 @@ function send(res, status, body, origin) {
 }
 function readBody(req, limit = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
-    let size = 0, chunks = [];
+    let size = 0, chunks = [], oversized = false;
     req.on('data', chunk => {
+      if (oversized) return;
       size += chunk.length;
-      if (size > limit) { reject(Object.assign(new Error('Request body is too large.'), { status: 413 })); req.destroy(); return; }
+      if (size > limit) { oversized = true; chunks = []; return; }
       chunks.push(chunk);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => oversized
+      ? reject(Object.assign(new Error('Request body is too large.'), { status: 413 }))
+      : resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
@@ -97,7 +100,8 @@ async function createContainer(session) {
     '--label', 'terminnia.session=' + session.id,
     '--network', 'none',
     '--memory', '512m', '--memory-swap', '512m', '--cpus', '1',
-    '--pids-limit', '128', '--read-only',
+    '--pids-limit', '128', '--ulimit', 'nofile=4096:4096', '--read-only',
+    '--log-opt', 'max-size=5m', '--log-opt', 'max-file=1',
     '--tmpfs', '/var/lib/mysql:rw,nosuid,nodev,size=256m',
     '--tmpfs', '/var/run/mysqld:rw,nosuid,nodev,size=16m',
     '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m',
@@ -270,7 +274,7 @@ const sweeper = setInterval(() => {
 sweeper.unref();
 
 async function reapOrphanedContainers() {
-  const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
+  const ids = await docker(['ps', '-aq', '-a', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
   if (ids) await docker(['rm', '-f', ...ids.split(/\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
 }
 async function shutdown() {
