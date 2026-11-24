@@ -69,3 +69,21 @@ test('creates and switches between persistent SQL editor tabs', async ({ page })
   await page.locator('.editor-tab').last().click();
   await expect(page.locator('.cm-content')).toContainText('second_tab');
 });
+
+test('rejects an invalid SQLite import without replacing the active database', async ({ page }) => {
+  await replaceSql(page, 'SELECT name FROM employees ORDER BY name LIMIT 1;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('Alex Morgan');
+
+  await page.locator('#database-file').setInputFiles({
+    name: 'not-a-database.sqlite',
+    mimeType: 'application/x-sqlite3',
+    buffer: Buffer.from('this is not a SQLite database')
+  });
+
+  await expect(page.locator('#toast')).toHaveClass(/visible/);
+  await expect(page.locator('#connection')).toContainText('Local database ready');
+  await replaceSql(page, 'SELECT name FROM employees ORDER BY name LIMIT 1;');
+  await page.getByRole('button', { name: /Run/ }).click();
+  await expect(page.locator('#result-content')).toContainText('Alex Morgan');
+});
