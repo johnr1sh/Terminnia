@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   browser-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,15 +25,21 @@ jobs:
         run: |
           node --input-type=module --check < app.js
           node --check sql-worker.js
+      - name: Generate pinned lockfile and install dependencies
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+          npm ci
       - name: Run database adapter unit tests
-        run: node --test tests/database-adapter.test.mjs
-      - name: Install browser test runner
+        run: npm run test:unit
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Build production bundle
+        run: npm run build
+      - name: Start built application server
         run: |
-          npm install --no-save @playwright/test
-          npx playwright install --with-deps chromium
-      - name: Start static server
-        run: |
-          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/terminnia-http.log 2>&1 &
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory dist > /tmp/terminnia-http.log 2>&1 &
           for attempt in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
             sleep 1
@@ -42,3 +48,13 @@ jobs:
           exit 1
       - name: Run browser smoke tests
         run: npx playwright test tests/smoke.spec.js --reporter=line
+      - name: Commit generated dependency lockfile
+        if: success() && github.event_name == 'push'
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: lock frontend dependencies"
+            git push
+          fi
