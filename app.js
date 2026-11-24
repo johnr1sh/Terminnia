@@ -69,6 +69,7 @@ async function recoverWorker(reason) {
     const initialized=await call('init',{buffer:saved||undefined,transfer});
     if(!initialized.ok)throw new Error(initialized.error?.message||'Database recovery failed.');
     ready=true;
+    $('#startup-error').hidden=true;
     $('#engine-label').textContent='SQLite WebAssembly · Local';
     $('#connection').textContent='● Local database ready';
     await refreshTables();
