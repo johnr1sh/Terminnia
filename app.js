@@ -87,7 +87,7 @@ async function recoverWorker(reason) {
   }
 }
 function startWorker() {
-  const instance=new Worker('./sql-worker.js');
+  const instance=new Worker(new URL('./sql-worker.js', import.meta.url), { type: 'module' });
   worker=instance;
   instance.onmessage=async e=>{
     if(instance!==worker)return;
