@@ -50,3 +50,25 @@ jobs:
           exit 1
       - name: Run browser smoke tests
         run: npx playwright test tests/smoke.spec.js --reporter=line
+
+  mysql-lab-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run MySQL 8.4 laboratory acceptance tests
+        env:
+          MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
+          MYSQL_ROOT_PASSWORD: rootpass
+        run: bash tests/mysql-lab-ci.sh
