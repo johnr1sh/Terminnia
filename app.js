@@ -88,8 +88,10 @@ function renderResultTabs() {
 }
 async function refreshTables() {
   const r=await call('tables');if(!r.ok)throw new Error(r.error?.message||'Cannot read tables.');
-  const host=$('#table-list');host.replaceChildren();
+  const host=$('#table-list');host.replaceChildren();$('#table-total').textContent=String(r.tables.length);
   if(!r.tables.length){const p=document.createElement('p');p.className='muted small';p.textContent='No tables yet. Run CREATE TABLE.';host.append(p);return;}
+  const views=r.tables.filter(([,type])=>type==='view'), tables=r.tables.filter(([,type])=>type!=='view');
+  $('#views-empty').textContent=views.length?views.map(([name])=>name).join(' · '):'No views';
   r.tables.forEach(([name,type])=>{const b=document.createElement('button');b.className='table-item'+(name===tableName?' active':'');b.textContent=(type==='view'?'◇ ':'▦ ')+name;b.onclick=()=>browse(name);host.append(b);});
 }
 async function browse(name) {
@@ -166,7 +168,9 @@ async function initialize() {
       doc:localStorage.getItem(QUERY)||SAMPLE,
       extensions:[basicSetup,sql(),oneDark,EditorView.lineWrapping,EditorView.updateListener.of(u=>{
         if(u.docChanged){try{localStorage.setItem(QUERY,u.state.doc.toString());}catch{}}
-        $('#cursor').textContent='Line '+u.state.selection.main.head+' · '+u.state.doc.lines+' lines';
+        const pos=u.state.selection.main.head, line=u.state.doc.lineAt(pos);
+        $('#cursor').textContent='Ln '+line.number+', Col '+(pos-line.from+1);
+        $('#status-selection').textContent=u.state.selection.main.empty?'No selection':(u.state.selection.main.to-u.state.selection.main.from)+' selected';
       })],parent:$('#editor')
     });
     ready=true;$('#engine-label').textContent='SQLite WebAssembly · Local';$('#connection').textContent='● Local database ready';
@@ -191,3 +195,51 @@ $('#refresh-tables').onclick=()=>refreshTables().catch(e=>toast(e.message,true))
 document.querySelectorAll('[data-panel-tab]').forEach(b=>b.onclick=()=>switchPanel(b.dataset.panelTab));
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();run();}});
 initialize();
+
+
+// Spck-inspired workspace controls.
+function setActivity(name) {
+  document.querySelectorAll('[data-activity]').forEach(b=>b.classList.toggle('selected',b.dataset.activity===name));
+  const titles={explorer:'EXPLORER',search:'SEARCH',database:'DATABASE',history:'HISTORY',settings:'SETTINGS'};
+  $('#sidebar-title').textContent=titles[name]||'EXPLORER';
+  const explorer=$('.explorer-section'), history=$('#history-section');
+  if(explorer)explorer.hidden=!['explorer','database'].includes(name);
+  if(history)history.hidden=name!=='history';
+  if(name==='search') {
+    if(!$('#sidebar-search')) {
+      const wrap=document.createElement('div');wrap.className='sidebar-search-wrap';wrap.innerHTML='<input id="sidebar-search" type="search" placeholder="Search SQL in current file…" autocomplete="off"><div class="search-hint">Search is applied to the current SQL document.</div>';
+      $('.sidebar-scroll').prepend(wrap);
+      $('#sidebar-search').addEventListener('input',e=>{
+        const q=e.target.value;if(!q)return;
+        const doc=editor.state.doc.toString(),at=doc.toLowerCase().indexOf(q.toLowerCase());
+        if(at>=0){editor.dispatch({selection:{anchor:at,head:at+q.length},scrollIntoView:true});editor.focus();}
+      });
+    }
+    $('#sidebar-search').parentElement.hidden=false;
+  } else if($('#sidebar-search')) $('#sidebar-search').parentElement.hidden=true;
+  if(name==='settings') {$('#settings-popover').hidden=false;}
+}
+document.querySelectorAll('[data-activity]').forEach(b=>b.addEventListener('click',()=>{
+  const mobile=matchMedia('(max-width:760px)').matches;
+  if(mobile && ['explorer','database','history'].includes(b.dataset.activity)) $('#sidebar').classList.toggle('open');
+  setActivity(b.dataset.activity);
+}));
+$('#sidebar-collapse').onclick=()=>$('#sidebar').classList.toggle('collapsed');
+$('#project-tree-toggle').onclick=()=>{const node=$('.project-meta');node.hidden=!node.hidden;$('.explorer-section .tree-group').forEach?.(()=>{});};
+$('#tables-tree-toggle').onclick=()=>{$('#table-list').hidden=!$('#table-list').hidden;};
+$('#views-tree-toggle').onclick=()=>{$('#views-empty').hidden=!$('#views-empty').hidden;};
+$('#settings-toggle').onclick=()=>{$('#settings-popover').hidden=!$('#settings-popover').hidden;};
+$('#font-size').onchange=e=>{document.querySelector('.cm-editor').style.fontSize=e.target.value+'px';};
+$('#line-wrap').onchange=e=>editor?.dispatch({effects:EditorView.reconfigure.of([basicSetup,sql(),oneDark,...(e.target.checked?[EditorView.lineWrapping]:[])])});
+$('#zen-mode').onchange=e=>document.body.classList.toggle('zen-mode',e.target.checked);
+$('#panel-toggle').onclick=()=>{const panel=$('#output-section'),resize=$('#panel-resize');const hidden=panel.hidden;panel.hidden=!hidden;resize.hidden=!hidden;$('#panel-toggle').textContent=hidden?'⌄':'⌃';};
+$('#add-tab').onclick=()=>{if(!editor)return;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:''}});editor.focus();$('#query-tab').querySelector('span:nth-child(2)').textContent='untitled.sql';toast('New SQL document ready. Download it to keep a copy.');};
+$('#new-query').onclick=()=>$('#add-tab').click();
+$('#project-switcher').onclick=()=>toast('This local workspace currently contains one database project.');
+$('#panel-resize').addEventListener('pointerdown',e=>{
+  const panel=$('#output-section'),workspace=$('.editor-workspace'),startY=e.clientY,startHeight=panel.getBoundingClientRect().height;
+  const move=ev=>{const next=Math.max(125,Math.min(workspace.clientHeight-190,startHeight+startY-ev.clientY));panel.style.height=next+'px';};
+  const stop=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);};
+  window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop);
+});
+document.addEventListener('click',e=>{if(!e.target.closest('#settings-popover')&&!e.target.closest('#settings-toggle')&&!e.target.closest('[data-activity="settings"]'))$('#settings-popover').hidden=true;});
