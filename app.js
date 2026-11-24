@@ -260,7 +260,7 @@ async function initialize() {
     editor=new EditorView({
       doc:tabs[0].content??SAMPLE,
       extensions:[basicSetup,sql(),oneDark,EditorView.lineWrapping,EditorView.updateListener.of(u=>{
-        if(u.docChanged){const value=u.state.doc.toString();try{localStorage.setItem(QUERY,value);const active=tabs.find(t=>t.id===activeTabId);if(active){active.content=value;saveTabs();}}catch{}}
+        if(u.docChanged){const value=u.state.doc.toString();try{localStorage.setItem(QUERY,value);const active=tabs.find(t=>t.id===activeTabId);if(active){active.content=value;saveTabs();}$('#draft-state').textContent='Draft saved locally';}catch{$('#draft-state').textContent='Draft not saved';}}
         const pos=u.state.selection.main.head, line=u.state.doc.lineAt(pos);
         $('#cursor').textContent='Ln '+line.number+', Col '+(pos-line.from+1);
         $('#status-selection').textContent=u.state.selection.main.empty?'No selection':(u.state.selection.main.to-u.state.selection.main.from)+' selected';
@@ -292,21 +292,34 @@ initialize();
 
 // Spck-inspired workspace controls.
 function setActivity(name) {
-  document.querySelectorAll('[data-activity]').forEach(b=>b.classList.toggle('selected',b.dataset.activity===name));
+  document.querySelectorAll('[data-activity]').forEach(b=>{const selected=b.dataset.activity===name;b.classList.toggle('selected',selected);if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   const titles={explorer:'EXPLORER',search:'SEARCH',database:'DATABASE',history:'HISTORY',settings:'SETTINGS'};
   $('#sidebar-title').textContent=titles[name]||'EXPLORER';
   const explorer=$('.explorer-section'), history=$('#history-section');
   if(explorer)explorer.hidden=!['explorer','database'].includes(name);
+  const starter=$('#starter-section');if(starter)starter.hidden=!['explorer'].includes(name);
   if(history)history.hidden=name!=='history';
   if(name==='search') {
     if(!$('#sidebar-search')) {
-      const wrap=document.createElement('div');wrap.className='sidebar-search-wrap';wrap.innerHTML='<input id="sidebar-search" type="search" placeholder="Search SQL in current file…" autocomplete="off"><div class="search-hint">Search is applied to the current SQL document.</div>';
+      const wrap=document.createElement('div');wrap.className='sidebar-search-wrap';wrap.innerHTML='<div class="search-field"><input id="sidebar-search" type="search" placeholder="Find in this SQL file…" autocomplete="off" aria-label="Find text in SQL file"><button type="button" id="search-prev" aria-label="Previous match" title="Previous match">↑</button><button type="button" id="search-next" aria-label="Next match" title="Next match">↓</button></div><div class="search-hint" id="search-hint" aria-live="polite">Type to find text in the current document.</div>';
       $('.sidebar-scroll').prepend(wrap);
-      $('#sidebar-search').addEventListener('input',e=>{
-        const q=e.target.value;if(!q)return;
-        const doc=editor.state.doc.toString(),at=doc.toLowerCase().indexOf(q.toLowerCase());
-        if(at>=0){editor.dispatch({selection:{anchor:at,head:at+q.length},scrollIntoView:true});editor.focus();}
-      });
+      let searchMatches=[],searchIndex=-1;
+      const searchInput=$('#sidebar-search');
+      const updateSearch=(direction=0)=>{
+        const q=searchInput.value,doc=editor.state.doc.toString();
+        if(!q){searchMatches=[];searchIndex=-1;$('#search-hint').textContent='Type to find text in the current document.';return;}
+        const lower=doc.toLocaleLowerCase(),needle=q.toLocaleLowerCase();searchMatches=[];
+        for(let at=lower.indexOf(needle);at!==-1;at=lower.indexOf(needle,at+needle.length))searchMatches.push(at);
+        if(!searchMatches.length){searchIndex=-1;$('#search-hint').textContent='No matches found';return;}
+        searchIndex=direction===0?0:(searchIndex+direction+searchMatches.length)%searchMatches.length;
+        const at=searchMatches[searchIndex];
+        editor.dispatch({selection:{anchor:at,head:at+q.length},scrollIntoView:true});
+        $('#search-hint').textContent=(searchIndex+1)+' of '+searchMatches.length+' matches';
+      };
+      searchInput.addEventListener('input',()=>updateSearch(0));
+      searchInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();updateSearch(e.shiftKey?-1:1);}if(e.key==='Escape'){searchInput.value='';updateSearch(0);}});
+      $('#search-prev').onclick=()=>updateSearch(-1);
+      $('#search-next').onclick=()=>updateSearch(1);
     }
     $('#sidebar-search').parentElement.hidden=false;
   } else if($('#sidebar-search')) $('#sidebar-search').parentElement.hidden=true;
@@ -340,12 +353,12 @@ function renderTabs(){
   const strip=$('.tab-strip'), add=$('#add-tab');
   strip.querySelectorAll('.editor-tab').forEach(n=>n.remove());
   tabs.forEach(tab=>{
-    const item=document.createElement('div');item.className='editor-tab'+(tab.id===activeTabId?' active':'');
+    const item=document.createElement('div');item.className='editor-tab'+(tab.id===activeTabId?' active':'');item.setAttribute('role','tab');item.setAttribute('tabindex',tab.id===activeTabId?'0':'-1');item.setAttribute('aria-selected',String(tab.id===activeTabId));item.setAttribute('aria-label',tab.name);
     const icon=document.createElement('span');icon.className='tab-file-icon';icon.textContent='▤';
     const name=document.createElement('span');name.textContent=tab.name;
     const close=document.createElement('button');close.className='tab-close';close.type='button';close.textContent='×';close.title='Close tab';
     close.setAttribute('aria-label','Close '+tab.name);close.onclick=e=>{e.stopPropagation();closeTab(tab.id);};
-    item.append(icon,name,close);item.onclick=()=>switchTab(tab.id);strip.insertBefore(item,add);
+    item.append(icon,name,close);item.onclick=()=>switchTab(tab.id);item.onkeydown=e=>{if(e.target===close)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();switchTab(tab.id);}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const index=tabs.findIndex(t=>t.id===tab.id),next=tabs[(index+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];switchTab(next.id);strip.querySelectorAll('[role=tab]')[tabs.findIndex(t=>t.id===next.id)]?.focus();}};strip.insertBefore(item,add);
   });
 }
 function switchTab(id){
@@ -371,6 +384,17 @@ function closeTab(id){
   if(wasActive){const target=tabs[Math.max(0,index-1)];activeTabId=target.id;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:target.content||''}});}
   saveTabs();renderTabs();
 }
+document.querySelectorAll('[data-template]').forEach(button=>button.addEventListener('click',()=>{
+  const templates={
+    select:'SELECT * FROM employees LIMIT 20;',
+    create:'CREATE TABLE new_table (\\n  id INTEGER PRIMARY KEY,\\n  name TEXT NOT NULL\\n);',
+    join:'SELECT e.name, e.department, d.budget\\nFROM employees AS e\\nJOIN departments AS d ON d.name = e.department;'
+  };
+  const source=templates[button.dataset.template];if(!source||!editor)return;
+  editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:source}});
+  editor.focus();if(matchMedia('(max-width:760px)').matches)closeMobileSidebar();
+  toast('SQL template inserted. Review it, then run your query.');
+}));
 $('#add-tab').onclick=createTab;
 $('#new-query').onclick=createTab;
 $('#project-switcher').onclick=()=>toast('This local workspace currently contains one database project.');
