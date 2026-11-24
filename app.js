@@ -69,8 +69,7 @@ async function recoverWorker(reason) {
     const saved=await loadSaved();
     const transfer=saved instanceof ArrayBuffer?[saved]:[];
     dbAdapter ??= new SQLiteAdapter({ request: call });
-    const initialized=await dbAdapter.connect({buffer:saved||undefined,transfer});
-    if(!initialized.ok)throw new Error(initialized.error?.message||'Database recovery failed.');
+    await dbAdapter.connect({buffer:saved||undefined,transfer});
     ready=true;
     $('#startup-error').hidden=true;
     $('#engine-label').textContent='SQLite WebAssembly · Local';
