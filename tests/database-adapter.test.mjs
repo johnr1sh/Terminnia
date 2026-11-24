@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { DatabaseAdapter, assertDatabaseAdapter, DATABASE_ADAPTER_METHODS } from '../database/adapter.mjs';
 import { SQLiteAdapter } from '../database/sqlite-adapter.mjs';
 
-test('adapter contract rejects incomplete implementations', () => {
+test('adapter contract rejects incomplete implementations', async () => {
   assert.throws(() => assertDatabaseAdapter({}), /missing required methods/);
   assert.equal(DATABASE_ADAPTER_METHODS.length, 9);
-  assert.throws(() => new DatabaseAdapter().connect(), /not implemented/);
+  await assert.rejects(new DatabaseAdapter().connect(), /not implemented/);
 });
 
 test('SQLite adapter implements the shared lifecycle and metadata contract', async () => {
@@ -40,6 +40,6 @@ test('SQLite adapter validates connection state, SQL, and object names', async (
   const adapter = new SQLiteAdapter({ request: async () => ({ ok: true }) });
   await assert.rejects(adapter.execute('SELECT 1'), /not connected/);
   await adapter.connect();
-  await assert.rejects(adapter.execute('   '), /non-empty SQL/);
+  await assert.rejects(adapter.execute('   '), /non-empty string/);
   await assert.rejects(adapter.listIndexes(''), /Object name is required/);
 });
