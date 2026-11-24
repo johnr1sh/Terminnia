@@ -253,3 +253,16 @@ test('workspace remains usable at narrow phone width', async ({ page }) => {
   }));
   expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
 });
+
+
+test('database engine menu explains the local and hosted MySQL modes', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#project-switcher')).toBeVisible();
+  await page.locator('#project-switcher').click();
+  await expect(page.locator('#workspace-menu')).toBeVisible();
+  await expect(page.locator('[data-engine="sqlite"]')).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('[data-engine="mysql"]')).toContainText('MySQL Lab');
+  await page.locator('[data-engine="mysql"]').click();
+  await expect(page.locator('#connection')).toContainText('Local database ready');
+  await expect(page.locator('#toast')).toContainText('hosted runner has not been configured');
+});
