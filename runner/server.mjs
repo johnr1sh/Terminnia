@@ -13,12 +13,14 @@ const MAX_SQL_BYTES = 64 * 1024;
 const MAX_BODY_BYTES = 72 * 1024;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 const MAX_ROWS = 5000;
+const MAX_ACTIVE_SESSIONS = 8;
 const STARTUP_TIMEOUT_MS = 45_000;
 const QUERY_TIMEOUT_MS = 8_000;
 const sessions = new Map();
 const rateBuckets = new Map();
 const allowedOrigins = new Set((process.env.RUNNER_ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean));
 let shuttingDown = false;
+let provisioning = 0;
 
 function sha(value) { return createHash('sha256').update(value).digest('hex'); }
 function equalHex(a, b) {
@@ -175,6 +177,8 @@ async function destroySession(session) {
   await removeContainer(session.containerId);
 }
 async function createSession() {
+  provisioning++;
+  try {
   const id = randomUUID();
   const token = randomBytes(32).toString('base64url');
   const session = {
@@ -185,6 +189,7 @@ async function createSession() {
   await createContainer(session);
   sessions.set(id, session);
   return { id, token, expiresInSeconds: Math.floor(IDLE_TTL_MS / 1000), maxLifetimeSeconds: Math.floor(MAX_LIFETIME_MS / 1000), engine: 'MySQL 8.4' };
+  } finally { provisioning--; }
 }
 function jsonRoute(path) {
   const match = path.match(/^\/api\/sandboxes\/([0-9a-f-]{36})(?:\/(execute|schema|reset))?$/i);
@@ -203,6 +208,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://runner.local');
   if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, service: 'terminnia-mysql-runner' }, origin);
   if (req.method === 'POST' && url.pathname === '/api/sandboxes') {
+    if (sessions.size + provisioning >= MAX_ACTIVE_SESSIONS) return send(res, 503, { error: 'All MySQL learning sandboxes are currently busy. Try again shortly.' }, origin);
     if (!rateLimit('create:' + clientKey(req), 3, 10 * 60_000)) return send(res, 429, { error: 'Too many sandbox requests. Try again later.' }, origin);
     try { return send(res, 201, await createSession(), origin); }
     catch (error) { return send(res, 503, { error: 'A MySQL sandbox could not be started.', detail: process.env.NODE_ENV === 'development' ? error.message : undefined }, origin); }
@@ -213,6 +219,7 @@ const server = http.createServer(async (req, res) => {
   if (!session) return send(res, 401, { error: 'Sandbox session is invalid or expired.' }, origin);
   try {
     if (route.action === 'execute' && req.method === 'POST') {
+      if (!rateLimit('execute:' + session.id, 30, 60_000)) return send(res, 429, { error: 'Query rate limit reached. Wait a moment before running more SQL.' }, origin);
       const raw = await readBody(req);
       let body;
       try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Request must contain valid JSON.' }, origin); }
@@ -249,6 +256,10 @@ const sweeper = setInterval(() => {
 }, 30_000);
 sweeper.unref();
 
+async function reapOrphanedContainers() {
+  const ids = await docker(['ps', '-aq', '--filter', 'label=app=terminnia-mysql-runner'], { timeout: 15_000, maxOutput: 64_000 });
+  if (ids) await docker(['rm', '-f', ...ids.split(/\\s+/).filter(Boolean)], { timeout: 30_000, maxOutput: 64_000 });
+}
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
