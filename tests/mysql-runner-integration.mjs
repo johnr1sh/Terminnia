@@ -48,6 +48,9 @@ DROP USER 'lab_reader'@'localhost';
   const allRows = executed.body.results.flatMap(result => result.values);
   assert.ok(allRows.some(row => row.includes('Ada')), 'SELECT/CALL must return real MySQL rows');
   assert.ok(allRows.some(row => row.some(value => String(value).includes('GRANT SELECT'))), 'SHOW GRANTS must return privilege information');
+  const persistedContext = await execute(first, 'SELECT COUNT(*) AS total FROM students');
+  assert.equal(persistedContext.response.status, 200, JSON.stringify(persistedContext.body));
+  assert.ok(persistedContext.body.results.flatMap(result => result.values).some(row => row.includes('2')), 'USE database context must persist across requests');
 
   second = await createSandbox();
   const isolated = await execute(second, 'SHOW DATABASES');
