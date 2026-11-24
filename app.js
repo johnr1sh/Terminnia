@@ -1,6 +1,7 @@
 import { basicSetup, EditorView } from 'https://esm.sh/codemirror@6.0.1';
 import { sql } from 'https://esm.sh/@codemirror/lang-sql@6.10.0';
 import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
+import { format as formatSQL } from 'https://esm.sh/sql-formatter@15.10.0';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
@@ -139,18 +140,12 @@ function exportCsv() {
   download('terminnia-results.csv','\uFEFF'+[columns,...rows].map(row=>row.map(q).join(',')).join('\r\n'),'text/csv;charset=utf-8');
 }
 function formatSql(source) {
-  const clauses=/\s+(FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|OFFSET|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|JOIN|ON|UNION(?:\s+ALL)?)\s+/gi;
-  let out='',quote=null,line=false,block=false;
-  for(let i=0;i<source.length;i++){const c=source[i],n=source[i+1];
-    if(line){out+=c;if(c==='\n')line=false;continue;}
-    if(block){out+=c;if(c==='*'&&n==='/'){out+=n;i++;block=false;}continue;}
-    if(quote){out+=c;if(c===quote&&source[i-1]!=='\\')quote=null;continue;}
-    if(c==="'"||c==='"'||c.charCodeAt(0)===96){quote=c;out+=c;continue;}
-    if(c==='-'&&n==='-'){line=true;out+=c+n;i++;continue;}
-    if(c==='/'&&n==='*'){block=true;out+=c+n;i++;continue;}
-    out+=c;
+  try {
+    return formatSQL(source, { language: 'sqlite', keywordCase: 'upper', tabWidth: 2 });
+  } catch (error) {
+    toast('Could not format this SQL: ' + error.message, true);
+    return source;
   }
-  return out.replace(clauses,'\n$1 ').replace(/;\s*/g,';\n').replace(/[ \t]+\n/g,'\n').trim();
 }
 async function exportDb() {
   const r=await call('export');if(!r.ok||!(r.buffer instanceof ArrayBuffer))throw new Error(r.error?.message||'Export failed.');
