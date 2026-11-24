@@ -2,6 +2,12 @@
 
 A free, anonymous, browser-based SQL workspace with a focused editor and a local database. No account, API key, application server, or hosted database is required.
 
+## Product direction: MySQL coursework without a computer
+
+Terminnia is being developed for students who only have a phone or tablet and need to complete MySQL laboratory work in a browser. The supplied coursework requires a real MySQL server, including stored procedures, stored functions, CREATE USER, GRANT, and REVOKE. The current local SQLite engine does not support those MySQL-specific exercises and must not be represented as MySQL.
+
+The implementation plan is to retain Local SQLite as an offline mode and add a separate, isolated MySQL Lab backed by disposable MySQL sandboxes. The runner is not implemented yet. See [the MySQL Learning Sandbox architecture and acceptance tests](docs/MYSQL-LEARNING-SANDBOX.md).
+
 ## Current capabilities
 
 - Execute SQL in a real SQLite WebAssembly engine running in a dedicated Web Worker, so query execution does not block the editor UI.
