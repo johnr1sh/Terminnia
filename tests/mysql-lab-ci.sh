@@ -23,22 +23,37 @@ expect_denied() {
   echo "Verified access denied: $description"
 }
 
-echo "1. Provisioning disposable MySQL laboratory database"
+echo "1. Provisioning disposable MySQL laboratory databases"
 mysql_root < tests/fixtures/mysql-labs.sql
 
-echo "2. Verifying stored routines and functions"
+echo "2. Verifying JOIN laboratory result sets"
+join_count="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT COUNT(*) FROM students s INNER JOIN enrollments e ON e.student_id=s.student_id")"
+left_count="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT COUNT(*) FROM students s LEFT JOIN enrollments e ON e.student_id=s.student_id")"
+right_count="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT COUNT(*) FROM enrollments e RIGHT JOIN courses c ON c.course_id=e.course_id")"
+cross_count="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT COUNT(*) FROM students CROSS JOIN courses")"
+having_count="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT COUNT(*) FROM (SELECT c.course_id FROM courses c LEFT JOIN enrollments e ON e.course_id=c.course_id GROUP BY c.course_id HAVING COUNT(e.enrollment_id)>=2) AS qualified")"
+[ "$join_count" = "7" ] && [ "$left_count" = "6" ] && [ "$right_count" = "5" ] && [ "$cross_count" = "30" ] && [ "$having_count" = "3" ] || { echo "Unexpected JOIN results: inner=$join_count left=$left_count right=$right_count cross=$cross_count having=$having_count"; exit 1; }
+unmatched_student="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT s.student_name FROM students s LEFT JOIN enrollments e ON e.student_id=s.student_id WHERE e.enrollment_id IS NULL")"
+unmatched_course="$(mysql_root --database=terminnia_mysql_join_ci --batch --skip-column-names --execute="SELECT c.course_name FROM courses c LEFT JOIN enrollments e ON e.course_id=c.course_id WHERE e.enrollment_id IS NULL")"
+[ "$unmatched_student" = "James" ] && [ "$unmatched_course" = "Cybersecurity" ] || { echo "Unexpected unmatched records: $unmatched_student / $unmatched_course"; exit 1; }
+
+echo "3. Verifying stored routines and functions"
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL GetAllStudents()" >/dev/null
 mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL GetStudentsByProgram('BSCS')" >/dev/null
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL GetStudentsByYear(1)" >/dev/null
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL GetStudentsWithBalance(10000)" >/dev/null
+mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL SearchStudents('BSIT', 1)" >/dev/null
 balance="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT CalculateBalance(3)")"
 [ "$balance" = "13000.00" ] || { echo "Unexpected balance: $balance"; exit 1; }
 status="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT GetPaymentStatus(2), GetPaymentStatus(99999)")"
 [ "$status" = $'FULLY PAID\tINVALID STUDENT' ] || { echo "Unexpected payment status: $status"; exit 1; }
-discount="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT GetTuitionDiscount(1), GetTuitionDiscount(11)")"
-[ "$discount" = $'2500.00\t0.00' ] || { echo "Unexpected discount: $discount"; exit 1; }
+discount="$(mysql_root --database=terminnia_mysql_advanced_ci --batch --skip-column-names --execute="SELECT GetTuitionDiscount(1), GetTuitionDiscount(10), GetTuitionDiscount(11)")"
+[ "$discount" = $'2500.00\t1100.00\t0.00' ] || { echo "Unexpected discount: $discount"; exit 1; }
 mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, 1000.00)" >/dev/null
 expect_denied "reject a negative payment" mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, -1.00)"
 expect_denied "reject payment above tuition" mysql_root --database=terminnia_mysql_advanced_ci --execute="CALL UpdateStudentPayment(1, 999999.00)"
 
-echo "3. Verifying separate-account privileges"
+echo "4. Verifying separate-account privileges"
 student_rows="$(mysql_user student_user student_ci_pw --batch --skip-column-names --execute="SELECT COUNT(*) FROM students")"
 [ "$student_rows" = "11" ] || { echo "Unexpected student row count: $student_rows"; exit 1; }
 expect_denied "student_user cannot INSERT" mysql_user student_user student_ci_pw --execute="INSERT INTO students(student_name) VALUES('blocked')"
@@ -52,7 +67,7 @@ mysql_user admin_assistant assistant_ci_pw --execute="INSERT INTO students(stude
 mysql_user admin_assistant assistant_ci_pw --execute="UPDATE students SET amount_paid=100 WHERE student_name='Assistant Test'"
 expect_denied "admin_assistant cannot DELETE" mysql_user admin_assistant assistant_ci_pw --execute="DELETE FROM students WHERE student_name='Assistant Test'"
 
-echo "4. Verifying REVOKE and restored SELECT access"
+echo "5. Verifying REVOKE and restored SELECT access"
 mysql_root --execute="REVOKE SELECT ON terminnia_mysql_advanced_ci.students FROM 'student_user'@'localhost'"
 expect_denied "student_user after REVOKE" mysql_user student_user student_ci_pw --execute="SELECT * FROM students"
 mysql_root --execute="GRANT SELECT ON terminnia_mysql_advanced_ci.students TO 'student_user'@'localhost'"
