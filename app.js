@@ -429,12 +429,16 @@ function updateEngineChrome() {
   $('#run-as-toggle').textContent = 'Run as: ' + (mysqlCredentials?.username || 'root');
   $('#sqlite-check').textContent = mysql ? '' : '✓';
   $('#mysql-check').textContent = mysql ? '✓' : '';
+  const mysqlChoice = document.querySelector('[data-engine="mysql"]');
+  mysqlChoice.disabled = !MYSQL_RUNNER_URL;
+  mysqlChoice.setAttribute('aria-disabled', String(!MYSQL_RUNNER_URL));
+  $('#mysql-menu-description').textContent = MYSQL_RUNNER_URL ? 'MySQL 8.4 · Temporary sandbox' : 'Unavailable · runner not configured';
   document.querySelector('[data-engine="sqlite"]').setAttribute('aria-current', String(!mysql));
   document.querySelector('[data-engine="mysql"]').setAttribute('aria-current', String(mysql));
   const note = $('#workspace-menu-note');
   note.dataset.state = !MYSQL_RUNNER_URL ? 'error' : 'ready';
   note.textContent = !MYSQL_RUNNER_URL
-    ? 'MySQL Lab is not available yet. The hosted runner URL must be configured during deployment.'
+    ? 'MySQL Lab is disabled until a separate HTTPS runner is deployed and verified.'
     : mysql ? 'Your MySQL sandbox is temporary and will be deleted when you disconnect or when it expires.' : 'MySQL Lab starts a separate, disposable MySQL 8.4 database.';
 }
 async function switchToMysql() {
