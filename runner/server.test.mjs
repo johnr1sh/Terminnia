@@ -1,37 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMysqlOutput, rateLimit } from './server.mjs';
+import { parseMysqlXml } from '../database/mysql-output.mjs';
+import { rateLimit } from './server.mjs';
 
-test('parses a tabular MySQL result set', () => {
-  const result = parseMysqlOutput('id\tname\n1\tAda\n2\tGrace');
-  assert.deepEqual(result, [{ columns: ['id', 'name'], values: [['1', 'Ada'], ['2', 'Grace']], rowCount: 2, truncated: false }]);
+test('parses MySQL XML rows and column names', () => {
+  const xml = '<resultset><row><field name="id">1</field><field name="name">Ada</field></row><row><field name="id">2</field><field name="name">Grace</field></row></resultset>';
+  assert.deepEqual(parseMysqlXml(xml), [{
+    columns: ['id', 'name'],
+    values: [['1', 'Ada'], ['2', 'Grace']],
+    rowCount: 2,
+    truncated: false
+  }]);
 });
 
-test('decodes MySQL batch escaped values', () => {
-  const result = parseMysqlOutput('value\nline\\nnext\\tcolumn');
-  assert.equal(result[0].values[0][0], 'line\nnext\tcolumn');
+test('decodes XML entities and preserves empty strings', () => {
+  const xml = '<resultset><row><field name="value">A &amp; B &lt; C</field><field name="empty"></field></row></resultset>';
+  assert.deepEqual(parseMysqlXml(xml)[0].values, [['A & B < C', '']]);
 });
 
-test('preserves literal backslash sequences while decoding MySQL output', () => {
-  const result = parseMysqlOutput('value\nliteral\\\\tsequence');
-  assert.equal(result[0].values[0][0], 'literal\\tsequence');
+test('preserves SQL NULL values', () => {
+  const xml = '<resultset><row><field name="value" xsi:nil="true" /></row></resultset>';
+  assert.deepEqual(parseMysqlXml(xml)[0].values, [[null]]);
 });
 
-test('decodes SQL NULL values', () => {
-  const result = parseMysqlOutput('value\n\\N');
-  assert.equal(result[0].values[0][0], null);
+test('returns no result sets for empty MySQL output', () => {
+  assert.deepEqual(parseMysqlXml(''), []);
+  assert.deepEqual(parseMysqlXml('  \n'), []);
 });
 
-test('returns no result sets for statements without rows', () => {
-  assert.deepEqual(parseMysqlOutput(''), []);
-  assert.deepEqual(parseMysqlOutput('  \n'), []);
-});
-
-test('parses multiple result sets', () => {
-  const result = parseMysqlOutput('first\na\n\nsecond\nb');
-  assert.equal(result.length, 2);
-  assert.deepEqual(result[0].columns, ['first']);
-  assert.deepEqual(result[1].values, [['b']]);
+test('enforces a global row limit across result sets', () => {
+  const xml = '<resultset><row><field name="v">1</field></row><row><field name="v">2</field></row></resultset><resultset><row><field name="v">3</field></row></resultset>';
+  const result = parseMysqlXml(xml, 2);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].rowCount, 2);
+  assert.equal(result[0].truncated, true);
 });
 
 test('enforces a fixed-window rate limit', () => {
