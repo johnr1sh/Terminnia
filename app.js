@@ -5,7 +5,13 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { format as formatSQL } from 'sql-formatter';
 import { SQLiteAdapter } from './database/sqlite-adapter.mjs';
 import { MysqlSandboxAdapter } from './database/mysql-sandbox-adapter.mjs';
-const MYSQL_RUNNER_URL = import.meta.env.VITE_MYSQL_RUNNER_URL || '';
+import { resolveMysqlRunnerUrl } from './database/mysql-runner-config.mjs';
+const MYSQL_LAB_ENABLED = import.meta.env.VITE_MYSQL_LAB_ENABLED === 'true';
+const MYSQL_RUNNER_URL = resolveMysqlRunnerUrl({
+  enabled: MYSQL_LAB_ENABLED,
+  configuredUrl: import.meta.env.VITE_MYSQL_RUNNER_URL || '',
+  frontendOrigin: window.location.origin
+});
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
@@ -16,7 +22,10 @@ const pending = new Map();
 let saveQueue = Promise.resolve();
 
 function hasSensitiveCredentials(sql) {
-  return /\bIDENTIFIED\s+BY\s+['"]/i.test(sql) || /\bSET\s+PASSWORD\b/i.test(sql) || /\bPASSWORD\s*\(\s*['"]/i.test(sql);
+  return /\b(?:CREATE|ALTER)\s+USER\b/i.test(sql)
+    || /\bSET\s+PASSWORD\b/i.test(sql)
+    || /\bIDENTIFIED\b[\s\S]{0,100}\bBY\s+['"]/i.test(sql)
+    || /\bPASSWORD\s*\(\s*['"]/i.test(sql);
 }
 function status(text, state='ready') { $('#status').textContent=text; $('#status').dataset.state=state; }
 function toast(text, error=false) {
@@ -425,12 +434,16 @@ function updateEngineChrome() {
   $('#run-as-toggle').textContent = 'Run as: ' + (mysqlCredentials?.username || 'root');
   $('#sqlite-check').textContent = mysql ? '' : '✓';
   $('#mysql-check').textContent = mysql ? '✓' : '';
+  const mysqlChoice = document.querySelector('[data-engine="mysql"]');
+  mysqlChoice.disabled = !MYSQL_RUNNER_URL;
+  mysqlChoice.setAttribute('aria-disabled', String(!MYSQL_RUNNER_URL));
+  $('#mysql-menu-description').textContent = MYSQL_RUNNER_URL ? 'MySQL 8.4 · Temporary sandbox' : 'Unavailable · runner not configured';
   document.querySelector('[data-engine="sqlite"]').setAttribute('aria-current', String(!mysql));
   document.querySelector('[data-engine="mysql"]').setAttribute('aria-current', String(mysql));
   const note = $('#workspace-menu-note');
   note.dataset.state = !MYSQL_RUNNER_URL ? 'error' : 'ready';
   note.textContent = !MYSQL_RUNNER_URL
-    ? 'MySQL Lab is not available yet. The hosted runner URL must be configured during deployment.'
+    ? 'MySQL Lab is disabled until a separate HTTPS runner is deployed and verified.'
     : mysql ? 'Your MySQL sandbox is temporary and will be deleted when you disconnect or when it expires.' : 'MySQL Lab starts a separate, disposable MySQL 8.4 database.';
 }
 async function switchToMysql() {

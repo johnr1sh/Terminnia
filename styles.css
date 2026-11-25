@@ -233,7 +233,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .workspace-menu[hidden]{display:none}
 .workspace-menu-title{padding:7px 9px 8px;color:#8f9ab4;font-size:9px;font-weight:750;letter-spacing:1.1px}
 .workspace-menu>button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 9px;border:0;border-radius:6px;background:transparent;color:#e2e7f2;text-align:left;cursor:pointer}
-.workspace-menu>button:hover{background:#ffffff0c}
+.workspace-menu>button:hover{background:#ffffff0c}.workspace-menu>button:disabled{opacity:.58;cursor:not-allowed}.workspace-menu>button:disabled:hover{background:transparent}
 .workspace-menu>button[aria-current=true]{background:#829cf01b}
 .workspace-menu-icon{width:22px;color:#a9baff;text-align:center;font-size:16px}
 .workspace-menu>button>span:nth-child(2){display:flex;flex:1;flex-direction:column;gap:3px}

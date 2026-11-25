@@ -267,15 +267,16 @@ test('database engine menu explains the local and hosted MySQL modes', async ({ 
   await expect(page.locator('#workspace-menu')).toBeVisible();
   await expect(page.locator('[data-engine="sqlite"]')).toHaveAttribute('aria-current', 'true');
   await expect(page.locator('[data-engine="mysql"]')).toContainText('MySQL Lab');
-  await page.locator('[data-engine="mysql"]').click();
+  await expect(page.locator('[data-engine="mysql"]')).toBeDisabled();
+  await expect(page.locator('#mysql-menu-description')).toContainText('Unavailable');
+  await expect(page.locator('#workspace-menu-note')).toContainText('separate HTTPS runner');
   await expect(page.locator('#connection')).toContainText('Local database ready');
-  await expect(page.locator('#toast')).toContainText('hosted runner has not been configured');
 });
 
 
 test('keeps SQL account credentials out of browser draft and tab storage', async ({ page }) => {
   const secret = 'x'.repeat(40);
-  const sql = "CREATE USER 'private_user'@'localhost' " + ['IDENTIFIED', 'BY', "'" + secret + "';"].join(' ');
+  const sql = "CREATE USER 'private_user'@'localhost' IDENTIFIED WITH caching_sha2_password BY '" + secret + "';\nALTER USER 'private_user'@'localhost' IDENTIFIED WITH caching_sha2_password BY '" + secret + "';";
   await replaceSql(page, sql);
   await expect(page.locator('#draft-state')).toContainText('Sensitive SQL kept in memory only');
   const saved = await page.evaluate(() => JSON.stringify({

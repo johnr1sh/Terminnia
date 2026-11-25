@@ -114,19 +114,20 @@ The supplied activity sheets are the acceptance-test source. Do not substitute S
 2. Prove a Docker-capable runner can create and destroy an isolated MySQL 8.4 sandbox.
 3. Prove the exact laboratory scripts run, including stored routines and user privilege operations.
 4. Add isolation, abuse, timeout, and cleanup tests.
-5. Connect the existing adapter interface to the MySQL sandbox API.
-6. Only then add the MySQL Lab mode to the interface and run the complete mobile browser acceptance suite.
-7. Configure production promotion to require all checks.
+5. Keep the existing adapter interface behind an explicit build-time feature flag until the hosted runner is verified.
+6. Deploy the runner on a dedicated Docker-capable host, configure its HTTPS URL, and pass the real MySQL integration and security acceptance suites.
+7. Enable `VITE_MYSQL_LAB_ENABLED=true` only after the runner is verified; then run the complete mobile browser acceptance suite.
+8. Configure production promotion to require all checks.
 
 ## Current truthful status
 
 - Local SQLite engine: implemented.
 - Local SQLite adapter: implemented.
-- MySQL execution in Terminnia: not implemented.
+- MySQL execution engine: implemented in the isolated runner code, but not available to public users until a separate runner host is deployed.
 - Initial Docker-based MySQL 8.4 runner service: implemented in `runner/server.mjs` with per-session containers, bearer capabilities, selected-database continuity, in-memory TTL tracking, bounded execution, reset/delete, and container cleanup.
 - Remote MySQL adapter contract: implemented in `database/mysql-sandbox-adapter.mjs`; it keeps bearer capabilities in memory and does not persist them.
 - Runner unit tests and Docker-backed integration tests: added to the quality workflow. The integration test exercises real MySQL statements, stored procedures, account/privilege statements, session isolation, reset, and deletion; results must be checked for the current commit.
-- MySQL runner deployment: not configured; no Docker-capable host or production endpoint is connected.
-- Frontend MySQL adapter/mode: not implemented; the editor still runs Local SQLite only.
+- MySQL runner deployment: not configured. The production `VITE_MYSQL_RUNNER_URL` must never point to the static Terminnia frontend; a dedicated Docker-capable host and HTTPS API are required.
+- Frontend MySQL adapter and engine switcher: implemented, but guarded by `VITE_MYSQL_LAB_ENABLED`; the feature must remain disabled until the hosted runner is proven.
 - End-to-end verification of stored routines, user privileges, output parsing, and hostile-query behavior through the runner: not complete.
 - Production-safe anonymous MySQL execution: not proven. The runner is an initial implementation and must not be publicly exposed until the security and deployment blockers in `runner/README.md` are closed.
