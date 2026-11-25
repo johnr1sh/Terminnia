@@ -17,7 +17,10 @@ const pending = new Map();
 let saveQueue = Promise.resolve();
 
 function hasSensitiveCredentials(sql) {
-  return /\bIDENTIFIED\s+BY\s+['"]/i.test(sql) || /\bSET\s+PASSWORD\b/i.test(sql) || /\bPASSWORD\s*\(\s*['"]/i.test(sql);
+  return /\b(?:CREATE|ALTER)\s+USER\b/i.test(sql)
+    || /\bSET\s+PASSWORD\b/i.test(sql)
+    || /\bIDENTIFIED\b[\s\S]{0,100}\bBY\s+['"]/i.test(sql)
+    || /\bPASSWORD\s*\(\s*['"]/i.test(sql);
 }
 function status(text, state='ready') { $('#status').textContent=text; $('#status').dataset.state=state; }
 function toast(text, error=false) {
