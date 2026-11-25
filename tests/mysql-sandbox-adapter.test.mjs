@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MysqlSandboxAdapter } from '../database/mysql-sandbox-adapter.mjs';
+import { resolveMysqlRunnerUrl } from '../database/mysql-runner-config.mjs';
+
+test('keeps MySQL Lab disabled unless the explicit feature flag is enabled', () => {
+  assert.equal(resolveMysqlRunnerUrl({ enabled: false, configuredUrl: 'https://runner.example.test', frontendOrigin: 'https://terminnia.example.test' }), '');
+});
+
+test('rejects a runner URL that points back to the frontend origin', () => {
+  assert.equal(resolveMysqlRunnerUrl({ enabled: true, configuredUrl: 'https://terminnia.example.test/api', frontendOrigin: 'https://terminnia.example.test' }), '');
+  assert.equal(resolveMysqlRunnerUrl({ enabled: true, configuredUrl: '/api/sandboxes', frontendOrigin: 'https://terminnia.example.test' }), '');
+});
+
+test('requires HTTPS for remote runner endpoints', () => {
+  assert.equal(resolveMysqlRunnerUrl({ enabled: true, configuredUrl: 'http://runner.example.test', frontendOrigin: 'https://terminnia.example.test' }), '');
+});
+
+test('accepts a separate HTTPS runner and localhost development endpoint', () => {
+  assert.equal(resolveMysqlRunnerUrl({ enabled: true, configuredUrl: 'https://runner.example.test/', frontendOrigin: 'https://terminnia.example.test' }), 'https://runner.example.test');
+  assert.equal(resolveMysqlRunnerUrl({ enabled: true, configuredUrl: 'http://localhost:8787/', frontendOrigin: 'http://localhost:4173' }), 'http://localhost:8787');
+});
+
 
 function response(body, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
