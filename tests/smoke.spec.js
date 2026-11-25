@@ -275,7 +275,7 @@ test('database engine menu explains the local and hosted MySQL modes', async ({ 
 
 test('keeps SQL account credentials out of browser draft and tab storage', async ({ page }) => {
   const secret = 'x'.repeat(40);
-  const sql = "CREATE USER 'private_user'@'localhost' " + ['IDENTIFIED', 'BY', "'" + secret + "';"].join(' ');
+  const sql = "CREATE USER 'private_user'@'localhost' IDENTIFIED WITH caching_sha2_password BY '" + secret + "';\\nALTER USER 'private_user'@'localhost' IDENTIFIED WITH caching_sha2_password BY '" + secret + "';";
   await replaceSql(page, sql);
   await expect(page.locator('#draft-state')).toContainText('Sensitive SQL kept in memory only');
   const saved = await page.evaluate(() => JSON.stringify({
