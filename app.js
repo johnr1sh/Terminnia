@@ -5,8 +5,13 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { format as formatSQL } from 'sql-formatter';
 import { SQLiteAdapter } from './database/sqlite-adapter.mjs';
 import { MysqlSandboxAdapter } from './database/mysql-sandbox-adapter.mjs';
+import { resolveMysqlRunnerUrl } from './database/mysql-runner-config.mjs';
 const MYSQL_LAB_ENABLED = import.meta.env.VITE_MYSQL_LAB_ENABLED === 'true';
-const MYSQL_RUNNER_URL = MYSQL_LAB_ENABLED ? (import.meta.env.VITE_MYSQL_RUNNER_URL || '') : '';
+const MYSQL_RUNNER_URL = resolveMysqlRunnerUrl({
+  enabled: MYSQL_LAB_ENABLED,
+  configuredUrl: import.meta.env.VITE_MYSQL_RUNNER_URL || '',
+  frontendOrigin: window.location.origin
+});
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
