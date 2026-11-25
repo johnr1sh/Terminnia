@@ -5,7 +5,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { format as formatSQL } from 'sql-formatter';
 import { SQLiteAdapter } from './database/sqlite-adapter.mjs';
 import { MysqlSandboxAdapter } from './database/mysql-sandbox-adapter.mjs';
-const MYSQL_RUNNER_URL = import.meta.env.VITE_MYSQL_RUNNER_URL || '';
+const MYSQL_LAB_ENABLED = import.meta.env.VITE_MYSQL_LAB_ENABLED === 'true';
+const MYSQL_RUNNER_URL = MYSQL_LAB_ENABLED ? (import.meta.env.VITE_MYSQL_RUNNER_URL || '') : '';
 
 const $ = s => document.querySelector(s);
 const DB = 'terminnia-local', STORE = 'snapshots', KEY = 'main';
