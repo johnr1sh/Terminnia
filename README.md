@@ -27,7 +27,7 @@ The implementation plan is to retain Local SQLite as an offline mode and add a s
 
 ## Run locally
 
-Use Node.js 22 or newer. To enable the MySQL Lab menu connection, set `VITE_MYSQL_RUNNER_URL` to the HTTPS URL of a deployed runner before building (see `.env.example`). The repository does not include a hosted runner URL.
+Use Node.js 22 or newer. MySQL Lab is disabled by default. Only set `VITE_MYSQL_LAB_ENABLED=true` together with `VITE_MYSQL_RUNNER_URL` after a dedicated runner has passed the deployment and security gates (see `.env.example`). Never point the runner URL at the Terminnia frontend domain.
 
 ```sh
 npm ci
@@ -39,7 +39,7 @@ Open `http://localhost:4173`. The Vite production build bundles CodeMirror, SQL 
 
 ## SQL compatibility
 
-**Local SQLite** executes SQLite SQL in the browser. **MySQL Lab** connects to a separate MySQL 8.4 sandbox when `VITE_MYSQL_RUNNER_URL` is configured at build time. The MySQL adapter supports multiple result sets, MySQL schema browsing, and a Run as selector so students can execute queries as root or as a separately created MySQL account to verify GRANT/REVOKE permissions. Each execution opens a new MySQL client connection; connection-scoped variables, temporary tables, prepared statements, and open transactions do not persist between separate Run actions. Keep those operations in one submitted script.
+**Local SQLite** executes SQLite SQL in the browser. **MySQL Lab** connects to a separate MySQL 8.4 sandbox only when `VITE_MYSQL_LAB_ENABLED=true` and a verified `VITE_MYSQL_RUNNER_URL` are configured at build time. The MySQL adapter supports multiple result sets, MySQL schema browsing, and a Run as selector so students can execute queries as root or as a separately created MySQL account to verify GRANT/REVOKE permissions. Each execution opens a new MySQL client connection; connection-scoped variables, temporary tables, prepared statements, and open transactions do not persist between separate Run actions. Keep those operations in one submitted script.
 
 The MySQL runner supports database/table DDL, inserts/updates/deletes, joins, grouping and aggregates, stored procedures/functions with `DELIMITER`, and user/privilege statements. Its full coursework acceptance suite is in `tests/mysql-coursework-integration.mjs`. The runner is not deployed yet; do not assume the MySQL Lab mode is live until a hosted runner is provisioned and the production endpoint is configured.
 
